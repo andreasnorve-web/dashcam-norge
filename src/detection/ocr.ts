@@ -68,6 +68,15 @@ export function classifyOcrText(text: string): {
     }
   }
 
+  // Isolert fartsgrense-tall først (vanlig på norske skilt)
+  const speedOnly = upper.match(/\b(\d{2,3})\b/)
+  if (speedOnly) {
+    const n = Number(speedOnly[1])
+    if ([30, 40, 50, 60, 70, 80, 90, 100, 110].includes(n)) {
+      return { kind: 'sign', message: `Skilt: fartsgrense ${n}` }
+    }
+  }
+
   const speed = upper.match(/\b(\d{2,3})\b/)
   if (
     speed &&
@@ -88,14 +97,6 @@ export function classifyOcrText(text: string): {
   ) {
     const short = text.slice(0, 80)
     return { kind: 'info', message: `Info: ${short}` }
-  }
-
-  // Isolert fartsgrense-tall i skilt-ROI
-  if (speed && Number(speed[1]) >= 30 && Number(speed[1]) <= 110) {
-    const n = Number(speed[1])
-    if ([30, 40, 50, 60, 70, 80, 90, 100, 110].includes(n)) {
-      return { kind: 'sign', message: `Skilt: fartsgrense ${n}` }
-    }
   }
 
   return { kind: null, message: '' }

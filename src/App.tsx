@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
 import { useGpsSpeed } from './hooks/useGpsSpeed'
+import { illustrationFromEvent } from './signs/illustration'
+import { SignIllustrationView } from './signs/SignIllustrationView'
 import type { AlertKind, DashcamSettings } from './types'
 import './App.css'
 
@@ -39,18 +41,20 @@ export default function App() {
   }
 
   const latest = events[0]
-  const latestSign = events.find(
-    (e) =>
-      (e.kind === 'sign' || e.kind === 'info' || e.kind === 'fuel') &&
-      e.imageDataUrl,
+  const latestVisual = events.find(
+    (e) => e.kind === 'sign' || e.kind === 'info' || e.kind === 'fuel',
   )
-  const showSignImage =
-    latestSign &&
+  const latestIllustration = latestVisual
+    ? illustrationFromEvent(latestVisual.kind, latestVisual.message)
+    : null
+  const showSignHud =
+    latestIllustration &&
+    latestVisual &&
     (!latest ||
       latest.kind === 'sign' ||
       latest.kind === 'info' ||
       latest.kind === 'fuel' ||
-      Date.now() - latestSign.at < 8000)
+      Date.now() - latestVisual.at < 10000)
 
   useEffect(() => {
     if (events.length === 0) return
@@ -146,20 +150,9 @@ export default function App() {
                   <div className="hud-card hud-card--urgent">
                     <span className="msg">{error}</span>
                   </div>
-                ) : showSignImage && latestSign?.imageDataUrl ? (
+                ) : showSignHud && latestIllustration ? (
                   <div className="hud-sign">
-                    <img
-                      src={latestSign.imageDataUrl}
-                      alt={latestSign.message}
-                      className="hud-sign-img"
-                    />
-                    {latestSign.message !== 'Skilt' &&
-                      latestSign.message !== 'Info' &&
-                      latestSign.message !== 'Prisskilt' && (
-                        <span className="hud-sign-caption">
-                          {latestSign.message}
-                        </span>
-                      )}
+                    <SignIllustrationView illustration={latestIllustration} />
                   </div>
                 ) : latest ? (
                   <div
@@ -239,34 +232,28 @@ export default function App() {
                 <p className="muted">Ingen deteksjoner ennå.</p>
               ) : (
                 <ul>
-                  {events.map((ev) => (
-                    <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
-                      {ev.imageDataUrl ? (
-                        <img
-                          src={ev.imageDataUrl}
-                          alt=""
-                          className="event-thumb"
-                        />
-                      ) : (
-                        <span className="kind">{KIND_LABEL[ev.kind]}</span>
-                      )}
-                      <span className="msg">
-                        {ev.imageDataUrl &&
-                        (ev.message === 'Skilt' ||
-                          ev.message === 'Info' ||
-                          ev.message === 'Prisskilt')
-                          ? KIND_LABEL[ev.kind]
-                          : ev.message}
-                      </span>
-                      <time>
-                        {new Date(ev.at).toLocaleTimeString('nb-NO', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </time>
-                    </li>
-                  ))}
+                  {events.map((ev) => {
+                    const illu = illustrationFromEvent(ev.kind, ev.message)
+                    return (
+                      <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
+                        {illu ? (
+                          <div className="event-illu">
+                            <SignIllustrationView illustration={illu} />
+                          </div>
+                        ) : (
+                          <span className="kind">{KIND_LABEL[ev.kind]}</span>
+                        )}
+                        <span className="msg">{ev.message}</span>
+                        <time>
+                          {new Date(ev.at).toLocaleTimeString('nb-NO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </time>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </section>
