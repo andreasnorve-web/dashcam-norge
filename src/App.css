@@ -337,9 +337,13 @@
 }
 
 .app--dash {
+  position: relative;
+  display: block;
   gap: 0;
   padding: 0;
-  grid-template-rows: 0 minmax(0, 1fr) 0;
+  height: 100dvh;
+  height: 100svh;
+  max-height: none;
 }
 
 .app--dash .top {
@@ -358,14 +362,30 @@
 }
 
 .app--dash .stage {
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
 }
 
 .app--dash .viewport {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
   border: 0;
   border-radius: 0;
-  height: 100%;
-  min-height: 100%;
+}
+
+.app--dash .viewport video {
+  z-index: 0;
+  background: #000;
+}
+
+.app--dash .viewport .overlay {
+  z-index: 1;
 }
 
 .app--dash .foot {
