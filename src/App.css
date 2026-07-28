@@ -59,6 +59,26 @@
   cursor: not-allowed;
 }
 
+.menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.4rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.65rem;
+  background: rgba(8, 12, 18, 0.78);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 750;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.app--dash .menu-btn {
+  pointer-events: auto;
+}
+
 .brand-text {
   min-width: 0;
 }
@@ -176,44 +196,6 @@
   font-weight: 650;
 }
 
-.edge-tabs {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 8;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  transform: translateY(-50%);
-  padding-right: var(--safe-r);
-}
-
-.edge-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 2.1rem;
-  padding: 0.85rem 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-right: 0;
-  border-radius: 0.7rem 0 0 0.7rem;
-  background: rgba(8, 12, 18, 0.82);
-  color: var(--text);
-  backdrop-filter: blur(10px);
-  box-shadow: -4px 0 18px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-}
-
-.edge-tab-label {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 0.72rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .drawer-backdrop {
   position: absolute;
   inset: 0;
@@ -271,7 +253,7 @@
 .hud-alert {
   position: absolute;
   top: 0.65rem;
-  right: 2.6rem;
+  right: 0.65rem;
   z-index: 5;
   max-width: min(62vw, 18rem);
   pointer-events: none;
@@ -343,7 +325,7 @@
 
 .hud-speed {
   position: absolute;
-  right: 2.6rem;
+  right: 0.7rem;
   bottom: 0.7rem;
   z-index: 5;
   display: grid;
@@ -395,7 +377,8 @@
 }
 
 .app--dash .brand,
-.app--dash .brand-mark {
+.app--dash .brand-mark,
+.app--dash .menu-btn {
   pointer-events: auto;
 }
 
@@ -613,15 +596,6 @@ button.brand-mark--stop {
   .brand p,
   .foot {
     display: none;
-  }
-
-  .edge-tab {
-    min-width: 1.9rem;
-    padding: 0.7rem 0.28rem;
-  }
-
-  .edge-tab-label {
-    font-size: 0.65rem;
   }
 }
 

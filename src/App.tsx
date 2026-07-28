@@ -66,11 +66,6 @@ export default function App() {
     void start()
   }
 
-  const openDrawer = (nextTab?: 'hendelser' | 'kontroll') => {
-    if (nextTab) setTab(nextTab)
-    setDrawerOpen(true)
-  }
-
   return (
     <div className={`app${running ? ' app--live app--dash' : ''}`}>
       <header className="top">
@@ -85,6 +80,18 @@ export default function App() {
             }}
           >
             {running ? 'Stopp' : 'Start'}
+          </button>
+          <button
+            type="button"
+            className="menu-btn"
+            aria-expanded={drawerOpen}
+            aria-controls="side-drawer"
+            onClick={() => setDrawerOpen((v) => !v)}
+          >
+            Meny
+            {events.length > 0 && (
+              <span className="badge">{Math.min(events.length, 99)}</span>
+            )}
           </button>
           {!running && (
             <div className="brand-text">
@@ -116,8 +123,9 @@ export default function App() {
                 </p>
               )}
               <p>
-                Trykk <strong>Start</strong> for fullskjerm-dashbord. Åpne
-                panelet via fanen til høyre for hendelser og innstillinger.
+                Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk{' '}
+                <strong>Meny</strong> ved siden av for hendelser og
+                innstillinger.
               </p>
               {error && <p className="error idle-error">{error}</p>}
               <button type="button" className="primary" onClick={handleStart}>
@@ -171,31 +179,6 @@ export default function App() {
               </div>
             </>
           )}
-        </div>
-
-        {/* Kant-fane til høyre — åpner skuff */}
-        <div className="edge-tabs" aria-hidden={drawerOpen}>
-          <button
-            type="button"
-            className="edge-tab"
-            aria-expanded={drawerOpen}
-            aria-controls="side-drawer"
-            onClick={() => openDrawer('hendelser')}
-          >
-            <span className="edge-tab-label">Hendelser</span>
-            {events.length > 0 && (
-              <span className="badge">{Math.min(events.length, 99)}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            className="edge-tab"
-            aria-expanded={drawerOpen}
-            aria-controls="side-drawer"
-            onClick={() => openDrawer('kontroll')}
-          >
-            <span className="edge-tab-label">Innstillinger</span>
-          </button>
         </div>
 
         {drawerOpen && (
