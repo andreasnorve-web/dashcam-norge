@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Dreper eksisterende SW hos brukere som har gammel PWA-cache.
+      // Kamerastream i «app-modus» er upålitelig på iOS — vi vil ikke cache hardt.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.svg',
@@ -20,15 +23,14 @@ export default defineConfig({
           'Mobil dashcam med veibaner, skilt, bensinpriser og varsler',
         theme_color: '#0c1118',
         background_color: '#0c1118',
-        // Ikke 'standalone': iOS PWA i standalone bryter ofte getUserMedia.
-        // minimal-ui = installerbar, men kamera fungerer mer pålitelig.
-        display: 'minimal-ui',
-        display_override: ['minimal-ui', 'browser'],
+        // KRITISK: standalone/fullscreen bryter getUserMedia på mange iPhones.
+        // browser = hjemskjerm åpner som Safari-fane der kamera fungerer.
+        display: 'browser',
         orientation: 'any',
-        start_url: '/?source=pwa',
+        start_url: '/',
         scope: '/',
         lang: 'nb',
-        id: '/dashcam-norge',
+        id: '/dashcam-camera-v3',
         icons: [
           {
             src: 'icon-192.png',
@@ -51,36 +53,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
-        navigateFallback: '/index.html',
-        // TF.js / Tesseract kan laste store assets — ikke blokker
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/storage\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'tfjs-models',
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'jsdelivr',
-              expiration: {
-                maxEntries: 40,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
       },
       devOptions: {
         enabled: false,

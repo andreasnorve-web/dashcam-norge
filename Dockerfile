@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+# bust: camera-browser-v3
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

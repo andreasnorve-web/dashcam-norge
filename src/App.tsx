@@ -58,7 +58,13 @@ export default function App() {
 
   const handleStart = () => {
     setDrawerOpen(false)
-    void start()
+    // Start getUserMedia i samme bruker-gest (kritisk for Safari/PWA).
+    const preflight =
+      navigator.mediaDevices?.getUserMedia?.({
+        audio: false,
+        video: true,
+      }) ?? null
+    void start(preflight)
   }
 
   return (
@@ -112,35 +118,49 @@ export default function App() {
           {!running && (
             <div className="idle">
               {(iosStandalone || pwaStandalone) && (
-                <p className="idle-warn">
-                  Installert app-modus kan blokkere kamera. Best: åpne siden i
-                  Safari/Chrome (ikke hjemskjerm-ikonet), tillat kamera, trykk
-                  Start.
-                </p>
+                <div className="idle-block">
+                  <p className="idle-warn">
+                    Du er i installert app-modus. Kamera fungerer ikke pålitelig
+                    her (iOS-begrensning). Åpne adressen i Safari/Chrome i
+                    stedet, og slett hjemskjerm-ikonet.
+                  </p>
+                  <p className="idle-url">{window.location.origin}</p>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      const url = `${window.location.origin}/?v=browser`
+                      void navigator.clipboard?.writeText(url).catch(() => {})
+                      const opened = window.open(
+                        url,
+                        '_blank',
+                        'noopener,noreferrer',
+                      )
+                      if (!opened) window.location.replace(url)
+                    }}
+                  >
+                    Kopier / åpne i nettleser
+                  </button>
+                </div>
               )}
-              <p>
-                Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk{' '}
-                <strong>Meny</strong> ved siden av for hendelser og
-                innstillinger.
-              </p>
-              {error && <p className="error idle-error">{error}</p>}
-              <button type="button" className="primary" onClick={handleStart}>
-                Start kamera
-              </button>
-              {(iosStandalone || pwaStandalone) && (
-                <button
-                  type="button"
-                  className="safari-link"
-                  onClick={() => {
-                    const url = `${window.location.origin}/?browser=1`
-                    const opened = window.open(url, '_blank', 'noopener,noreferrer')
-                    if (!opened) {
-                      window.location.href = url
-                    }
-                  }}
-                >
-                  Åpne i nettleser
-                </button>
+              {!(iosStandalone || pwaStandalone) && (
+                <>
+                  <p>
+                    Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk{' '}
+                    <strong>Meny</strong> for hendelser og innstillinger.
+                  </p>
+                  {error && <p className="error idle-error">{error}</p>}
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleStart}
+                  >
+                    Start kamera
+                  </button>
+                </>
+              )}
+              {(iosStandalone || pwaStandalone) && error && (
+                <p className="error idle-error">{error}</p>
               )}
             </div>
           )}

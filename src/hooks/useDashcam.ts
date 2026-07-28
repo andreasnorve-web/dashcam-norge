@@ -454,37 +454,48 @@ export function useDashcam() {
     rafRef.current = requestAnimationFrame(loop)
   }, [drawFrame, runDetection])
 
-  const start = useCallback(async () => {
-    setError(null)
-    // Vis viewport med en gang (idle-overlay vekk) så video kan tegnes i PWA.
-    setRunning(true)
-    try {
-      const stream = await openDashcamStream()
-      streamRef.current = stream
-      const video = videoRef.current
-      if (!video) {
-        stream.getTracks().forEach((t) => t.stop())
-        throw new Error('Videoelement mangler.')
+  const start = useCallback(
+    async (preflight?: Promise<MediaStream> | null) => {
+      setError(null)
+      setRunning(true)
+      try {
+        let stream: MediaStream | null = null
+        if (preflight) {
+          try {
+            stream = await preflight
+          } catch {
+            stream = null
+          }
+        }
+        if (!stream) stream = await openDashcamStream()
+
+        streamRef.current = stream
+        const video = videoRef.current
+        if (!video) {
+          stream.getTracks().forEach((t) => t.stop())
+          throw new Error('Videoelement mangler.')
+        }
+        await attachStreamToVideo(video, stream)
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = requestAnimationFrame(loop)
+      } catch (e) {
+        streamRef.current?.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+        if (videoRef.current) videoRef.current.srcObject = null
+        setRunning(false)
+        let message =
+          e instanceof Error
+            ? e.message
+            : 'Kamera tilgang ble avslått. Bruk HTTPS og tillat kamera.'
+        if (isIosStandalone() || pwaStandalone) {
+          message +=
+            ' Slett hjemskjerm-ikonet og åpne lenken i Safari/Chrome.'
+        }
+        setError(message)
       }
-      await attachStreamToVideo(video, stream)
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(loop)
-    } catch (e) {
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-      if (videoRef.current) videoRef.current.srcObject = null
-      setRunning(false)
-      let message =
-        e instanceof Error
-          ? e.message
-          : 'Kamera tilgang ble avslått. Bruk HTTPS og tillat kamera.'
-      if (isIosStandalone() || pwaStandalone) {
-        message +=
-          ' Slett hjemskjerm-ikonet, åpne lenken i Safari/Chrome, tillat kamera, og legg til på nytt hvis du vil.'
-      }
-      setError(message)
-    }
-  }, [loop, pwaStandalone])
+    },
+    [loop, pwaStandalone],
+  )
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
