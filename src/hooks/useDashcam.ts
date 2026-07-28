@@ -4,6 +4,10 @@ import { speak } from '../alerts/speech'
 import { detectLanes } from '../detection/laneDetector'
 import { detectObjects, loadObjectModel } from '../detection/objectDetector'
 import { classifyOcrText, initOcr, readTextFromCanvas } from '../detection/ocr'
+import {
+  buildRoadSearchZones,
+  scoreByRoadPosition,
+} from '../detection/roadRoi'
 import { findSignRegions } from '../detection/signDetector'
 import type {
   DashcamEvent,
@@ -33,6 +37,7 @@ export function useDashcam() {
   const lastOcrRef = useRef(0)
   const boxesRef = useRef<DetectionBox[]>([])
   const lanesRef = useRef<LaneLines>({ left: null, right: null })
+  const zonesRef = useRef<ReturnType<typeof buildRoadSearchZones> | null>(null)
   const settingsRef = useRef(DEFAULT_SETTINGS)
   const alertCooldown = useRef(new Map<string, number>())
 
@@ -130,6 +135,18 @@ export function useDashcam() {
         ctx.lineTo(line.x2, line.y2)
         ctx.stroke()
       }
+
+      // Vis søkesoner: skilt midt/høyre, bensin høyere, lav sone
+      const z = zonesRef.current
+      if (z) {
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([6, 5])
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)'
+        ctx.strokeRect(z.sign.x0, z.sign.y0, z.sign.x1 - z.sign.x0, z.sign.y1 - z.sign.y0)
+        ctx.strokeStyle = 'rgba(110, 203, 255, 0.35)'
+        ctx.strokeRect(z.fuel.x0, z.fuel.y0, z.fuel.x1 - z.fuel.x0, z.fuel.y1 - z.fuel.y0)
+        ctx.setLineDash([])
+      }
     }
 
     for (const box of boxesRef.current) {
@@ -196,14 +213,42 @@ export function useDashcam() {
     }
 
     const objects = await detectObjects(sample)
-    const signs = findSignRegions(imageData, sw, sh)
-    const scaled: DetectionBox[] = [...objects, ...signs].map((b) => ({
-      ...b,
-      x: b.x * inv,
-      y: b.y * inv,
-      width: b.width * inv,
-      height: b.height * inv,
-    }))
+    const signs = findSignRegions(imageData, sw, sh, lanes)
+    const zonesSample = buildRoadSearchZones(sw, sh, lanes)
+    zonesRef.current = {
+      sign: {
+        x0: zonesSample.sign.x0 * inv,
+        x1: zonesSample.sign.x1 * inv,
+        y0: zonesSample.sign.y0 * inv,
+        y1: zonesSample.sign.y1 * inv,
+      },
+      fuel: {
+        x0: zonesSample.fuel.x0 * inv,
+        x1: zonesSample.fuel.x1 * inv,
+        y0: zonesSample.fuel.y0 * inv,
+        y1: zonesSample.fuel.y1 * inv,
+      },
+      roadsideLow: {
+        x0: zonesSample.roadsideLow.x0 * inv,
+        x1: zonesSample.roadsideLow.x1 * inv,
+        y0: zonesSample.roadsideLow.y0 * inv,
+        y1: zonesSample.roadsideLow.y1 * inv,
+      },
+    }
+
+    const scaled: DetectionBox[] = [...objects, ...signs]
+      .map((b) => ({
+        ...b,
+        x: b.x * inv,
+        y: b.y * inv,
+        width: b.width * inv,
+        height: b.height * inv,
+      }))
+      .sort(
+        (a, b) =>
+          scoreByRoadPosition(b, zonesRef.current!) -
+          scoreByRoadPosition(a, zonesRef.current!),
+      )
     boxesRef.current = scaled
 
     const cfg = settingsRef.current
@@ -236,6 +281,11 @@ export function useDashcam() {
             b.label === 'Bil' ||
             b.label === 'truck' ||
             b.label === 'bus',
+        )
+        .sort(
+          (a, b) =>
+            scoreByRoadPosition(b, zonesRef.current!) -
+            scoreByRoadPosition(a, zonesRef.current!),
         )
         .slice(0, 3)
 

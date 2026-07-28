@@ -131,8 +131,8 @@ export default function App() {
           {tab === 'hendelser' ? (
             <section className="panel events">
               <p className="events-hint">
-                Skilt, bensinpriser og kontrollvarsler vises her når de
-                oppdages.
+                Skilt søkes til høyre for høyre feltlinje. Bensinpriser høyere
+                opp. Kontroll/politi lavt til høyre.
               </p>
               {events.length === 0 ? (
                 <p className="muted">Ingen deteksjoner ennå.</p>

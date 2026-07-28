@@ -1,15 +1,24 @@
-import type { DetectionBox } from '../types'
+import type { DetectionBox, LaneLines } from '../types'
+import {
+  buildRoadSearchZones,
+  inZone,
+  scoreByRoadPosition,
+  type RoadSearchZones,
+} from './roadRoi'
 
-/** Finn skilt-lignende regioner via farge (rød ring / blå info / gul advarsel). */
+/** Finn skilt-lignende regioner, prioritert til høyre for høyre feltlinje. */
 export function findSignRegions(
   imageData: ImageData,
   width: number,
   height: number,
+  lanes?: LaneLines,
 ): DetectionBox[] {
   const data = imageData.data
   const cell = 16
   const candidates: DetectionBox[] = []
+  const zones = buildRoadSearchZones(width, height, lanes ?? { left: null, right: null })
 
+  // Skann hele bildet, men krev at treff ligger i relevante soner
   for (let cy = 0; cy < height - cell; cy += cell) {
     for (let cx = 0; cx < width - cell; cx += cell) {
       let red = 0
@@ -42,7 +51,7 @@ export function findSignRegions(
       const brightRatio = bright / n
 
       if (redRatio > 0.22) {
-        candidates.push({
+        pushIfRelevant(candidates, zones, {
           x: Math.max(0, cx - cell),
           y: Math.max(0, cy - cell),
           width: cell * 3,
@@ -52,7 +61,7 @@ export function findSignRegions(
           kind: 'sign',
         })
       } else if (blueRatio > 0.28) {
-        candidates.push({
+        pushIfRelevant(candidates, zones, {
           x: Math.max(0, cx - cell * 2),
           y: Math.max(0, cy - cell),
           width: cell * 5,
@@ -62,7 +71,7 @@ export function findSignRegions(
           kind: 'info',
         })
       } else if (yellowRatio > 0.25 && brightRatio < 0.5) {
-        candidates.push({
+        pushIfRelevant(candidates, zones, {
           x: Math.max(0, cx - cell),
           y: Math.max(0, cy - cell),
           width: cell * 4,
@@ -71,9 +80,8 @@ export function findSignRegions(
           score: yellowRatio,
           kind: 'sign',
         })
-      } else if (brightRatio > 0.45 && cy < height * 0.55) {
-        // Mulig LED-prisskilt
-        candidates.push({
+      } else if (brightRatio > 0.45) {
+        pushIfRelevant(candidates, zones, {
           x: Math.max(0, cx - cell * 2),
           y: Math.max(0, cy - cell),
           width: cell * 6,
@@ -86,13 +94,37 @@ export function findSignRegions(
     }
   }
 
-  return mergeBoxes(candidates).slice(0, 8)
+  return mergeBoxes(
+    candidates
+      .map((b) => ({ ...b, score: scoreByRoadPosition(b, zones) }))
+      .sort((a, b) => b.score - a.score),
+  ).slice(0, 8)
+}
+
+function pushIfRelevant(
+  list: DetectionBox[],
+  zones: RoadSearchZones,
+  box: DetectionBox,
+) {
+  if (box.kind === 'fuel') {
+    // Bensinpriser: høyere opp, til høyre
+    if (!inZone(box, zones.fuel) && !inZone(box, zones.sign)) return
+  } else if (box.kind === 'sign' || box.kind === 'info') {
+    // Skilt: til høyre for høyre feltlinje (sign-sone + litt overlapp lavt)
+    if (
+      !inZone(box, zones.sign) &&
+      !inZone(box, zones.fuel) &&
+      !inZone(box, zones.roadsideLow)
+    ) {
+      return
+    }
+  }
+  list.push(box)
 }
 
 function mergeBoxes(boxes: DetectionBox[]): DetectionBox[] {
-  const sorted = [...boxes].sort((a, b) => b.score - a.score)
   const kept: DetectionBox[] = []
-  for (const box of sorted) {
+  for (const box of boxes) {
     const overlaps = kept.some((k) => iou(k, box) > 0.35)
     if (!overlaps) kept.push(box)
   }
