@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
+import { useGpsSpeed } from './hooks/useGpsSpeed'
 import type { AlertKind, DashcamSettings } from './types'
 import './App.css'
 
@@ -32,20 +33,34 @@ export default function App() {
 
   const [panelOpen, setPanelOpen] = useState(true)
   const [tab, setTab] = useState<'kontroll' | 'hendelser'>('hendelser')
+  const { speedKmh } = useGpsSpeed(running)
 
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
   }
 
   const latest = events[0]
+  const dashMode = !panelOpen
 
   useEffect(() => {
     if (events.length === 0) return
     setTab('hendelser')
   }, [events])
 
+  // Når kamera starter: gå rett i full dashbordvisning
+  useEffect(() => {
+    if (running) setPanelOpen(false)
+  }, [running])
+
+  const handleStart = () => {
+    setPanelOpen(false)
+    void start()
+  }
+
   return (
-    <div className={`app${running ? ' app--live' : ''}${panelOpen ? '' : ' app--panel-closed'}`}>
+    <div
+      className={`app${running ? ' app--live' : ''}${dashMode ? ' app--panel-closed' : ''}${dashMode && running ? ' app--dash' : ''}`}
+    >
       <header className="top">
         <div className="brand">
           <button
@@ -54,21 +69,27 @@ export default function App() {
             aria-label={running ? 'Stopp kamera' : 'Start kamera'}
             onClick={() => {
               if (running) stop()
-              else void start()
+              else handleStart()
             }}
           >
             {running ? 'Stopp' : 'Start'}
           </button>
-          <div className="brand-text">
-            <h1>Dashcam Norge</h1>
-            <p>Felt · skilt · bensin · varsler</p>
-          </div>
+          {!dashMode && (
+            <div className="brand-text">
+              <h1>Dashcam Norge</h1>
+              <p>Felt · skilt · bensin · varsler</p>
+            </div>
+          )}
         </div>
         <div className="meta">
-          <span className={ready ? 'pill ok' : 'pill'}>
-            {ready ? 'Klar' : loadingMsg || 'Laster'}
-          </span>
-          {running && <span className="pill">{fps} det/s</span>}
+          {!dashMode && (
+            <>
+              <span className={ready ? 'pill ok' : 'pill'}>
+                {ready ? 'Klar' : loadingMsg || 'Laster'}
+              </span>
+              {running && <span className="pill">{fps} det/s</span>}
+            </>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -95,15 +116,11 @@ export default function App() {
                 </p>
               )}
               <p>
-                Trykk <strong>Start</strong> og tillat kamera. Modellene lastes i
-                bakgrunnen.
+                Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk Meny
+                for hendelser og innstillinger.
               </p>
               {error && <p className="error idle-error">{error}</p>}
-              <button
-                type="button"
-                className="primary"
-                onClick={() => void start()}
-              >
+              <button type="button" className="primary" onClick={handleStart}>
                 Start kamera
               </button>
               {iosStandalone && (
@@ -114,17 +131,30 @@ export default function App() {
             </div>
           )}
 
-          {running && error && (
-            <div className="toast toast--urgent">
-              <span className="msg">{error}</span>
-            </div>
-          )}
+          {running && (
+            <>
+              <div className="hud-alert">
+                {error ? (
+                  <div className="hud-card hud-card--urgent">
+                    <span className="msg">{error}</span>
+                  </div>
+                ) : latest ? (
+                  <div
+                    className={`hud-card${latest.urgent ? ' hud-card--urgent' : ''}`}
+                  >
+                    <span className="kind">{KIND_LABEL[latest.kind]}</span>
+                    <span className="msg">{latest.message}</span>
+                  </div>
+                ) : null}
+              </div>
 
-          {running && !error && latest && (
-            <div className={`toast${latest.urgent ? ' toast--urgent' : ''}`}>
-              <span className="kind">{KIND_LABEL[latest.kind]}</span>
-              <span className="msg">{latest.message}</span>
-            </div>
+              <div className="hud-speed" aria-live="polite">
+                <span className="hud-speed-value">
+                  {speedKmh == null ? '—' : speedKmh}
+                </span>
+                <span className="hud-speed-unit">km/t</span>
+              </div>
+            </>
           )}
         </div>
 
@@ -238,9 +268,11 @@ export default function App() {
         </aside>
       </main>
 
-      <footer className="foot">
-        Kjører lokalt i nettleseren — kamera sendes ikke til server.
-      </footer>
+      {!dashMode && (
+        <footer className="foot">
+          Kjører lokalt i nettleseren — kamera sendes ikke til server.
+        </footer>
+      )}
     </div>
   )
 }

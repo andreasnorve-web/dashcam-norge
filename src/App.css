@@ -209,6 +209,125 @@
   background: rgba(60, 12, 12, 0.78);
 }
 
+/* HUD i fullskjerm-dashbord */
+.hud-alert {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 5;
+  max-width: min(72vw, 20rem);
+  pointer-events: none;
+}
+
+.hud-card {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.7rem;
+  background: rgba(8, 12, 18, 0.78);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.hud-card--urgent {
+  border-color: rgba(255, 77, 77, 0.6);
+  background: rgba(70, 12, 12, 0.82);
+}
+
+.hud-card .kind {
+  font-size: 0.65rem;
+}
+
+.hud-card .msg {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #fff;
+}
+
+.hud-speed {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 5;
+  display: grid;
+  justify-items: end;
+  padding: 0.45rem 0.75rem 0.4rem;
+  border-radius: 0.85rem;
+  background: rgba(8, 12, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.hud-speed-value {
+  font-size: clamp(2rem, 8vw, 3.2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  letter-spacing: -0.03em;
+}
+
+.hud-speed-unit {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.app--dash {
+  gap: 0;
+  padding: 0;
+  grid-template-rows: 0 minmax(0, 1fr) 0;
+}
+
+.app--dash .top {
+  position: absolute;
+  z-index: 6;
+  left: calc(0.45rem + var(--safe-l));
+  top: calc(0.45rem + var(--safe-t));
+  right: auto;
+  width: auto;
+  pointer-events: none;
+}
+
+.app--dash .brand,
+.app--dash .brand-mark,
+.app--dash .meta,
+.app--dash .icon-btn {
+  pointer-events: auto;
+}
+
+.app--dash .meta {
+  position: absolute;
+  left: calc(4.4rem + var(--safe-l));
+  top: 0;
+}
+
+.app--dash .icon-btn {
+  background: rgba(8, 12, 18, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.app--dash .stage {
+  grid-template-columns: 1fr;
+  height: 100%;
+}
+
+.app--dash .viewport {
+  border: 0;
+  border-radius: 0;
+  height: 100%;
+  min-height: 100%;
+}
+
+.app--dash .foot {
+  display: none;
+}
+
 .side {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
