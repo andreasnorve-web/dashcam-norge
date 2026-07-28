@@ -303,6 +303,44 @@
   color: #fff;
 }
 
+.hud-sign {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: end;
+  max-width: min(42vw, 9.5rem);
+}
+
+.hud-sign-img {
+  width: min(42vw, 9.5rem);
+  height: auto;
+  max-height: 9.5rem;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: rgba(8, 12, 18, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.hud-sign-caption {
+  padding: 0.25rem 0.45rem;
+  border-radius: 0.45rem;
+  background: rgba(8, 12, 18, 0.78);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-align: right;
+  max-width: 100%;
+}
+
+.event-thumb {
+  width: 2.4rem;
+  height: 2.4rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: #000;
+}
+
 .hud-speed {
   position: absolute;
   right: 2.6rem;

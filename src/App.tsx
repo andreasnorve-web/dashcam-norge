@@ -39,6 +39,18 @@ export default function App() {
   }
 
   const latest = events[0]
+  const latestSign = events.find(
+    (e) =>
+      (e.kind === 'sign' || e.kind === 'info' || e.kind === 'fuel') &&
+      e.imageDataUrl,
+  )
+  const showSignImage =
+    latestSign &&
+    (!latest ||
+      latest.kind === 'sign' ||
+      latest.kind === 'info' ||
+      latest.kind === 'fuel' ||
+      Date.now() - latestSign.at < 8000)
 
   useEffect(() => {
     if (events.length === 0) return
@@ -125,6 +137,21 @@ export default function App() {
                 {error ? (
                   <div className="hud-card hud-card--urgent">
                     <span className="msg">{error}</span>
+                  </div>
+                ) : showSignImage && latestSign?.imageDataUrl ? (
+                  <div className="hud-sign">
+                    <img
+                      src={latestSign.imageDataUrl}
+                      alt={latestSign.message}
+                      className="hud-sign-img"
+                    />
+                    {latestSign.message !== 'Skilt' &&
+                      latestSign.message !== 'Info' &&
+                      latestSign.message !== 'Prisskilt' && (
+                        <span className="hud-sign-caption">
+                          {latestSign.message}
+                        </span>
+                      )}
                   </div>
                 ) : latest ? (
                   <div
@@ -231,8 +258,23 @@ export default function App() {
                 <ul>
                   {events.map((ev) => (
                     <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
-                      <span className="kind">{KIND_LABEL[ev.kind]}</span>
-                      <span className="msg">{ev.message}</span>
+                      {ev.imageDataUrl ? (
+                        <img
+                          src={ev.imageDataUrl}
+                          alt=""
+                          className="event-thumb"
+                        />
+                      ) : (
+                        <span className="kind">{KIND_LABEL[ev.kind]}</span>
+                      )}
+                      <span className="msg">
+                        {ev.imageDataUrl &&
+                        (ev.message === 'Skilt' ||
+                          ev.message === 'Info' ||
+                          ev.message === 'Prisskilt')
+                          ? KIND_LABEL[ev.kind]
+                          : ev.message}
+                      </span>
                       <time>
                         {new Date(ev.at).toLocaleTimeString('nb-NO', {
                           hour: '2-digit',

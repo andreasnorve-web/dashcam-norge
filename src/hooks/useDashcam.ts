@@ -99,12 +99,28 @@ export function useDashcam() {
       message: string,
       urgent: boolean,
       shouldSpeak: boolean,
+      imageDataUrl?: string,
     ) => {
       const key = `${kind}:${message}`
       const now = Date.now()
       const last = alertCooldown.current.get(key) ?? 0
-      const cooldown = urgent ? 8000 : 14000
-      if (now - last < cooldown) return
+      const visual =
+        Boolean(imageDataUrl) &&
+        (kind === 'sign' || kind === 'info' || kind === 'fuel')
+      const cooldown = urgent ? 8000 : visual ? 2500 : 14000
+
+      if (now - last < cooldown) {
+        // Oppdater skiltbilde på siste hendelse uten ny rad
+        if (visual && imageDataUrl) {
+          setEvents((prev) => {
+            if (prev.length === 0 || prev[0].kind !== kind) return prev
+            const next = [...prev]
+            next[0] = { ...next[0], imageDataUrl, at: now }
+            return next
+          })
+        }
+        return
+      }
       alertCooldown.current.set(key, now)
 
       const ev: DashcamEvent = {
@@ -114,11 +130,49 @@ export function useDashcam() {
         spoken: shouldSpeak,
         urgent,
         at: now,
+        imageDataUrl,
       }
       setEvents((prev) => [ev, ...prev].slice(0, 30))
 
       if (shouldSpeak) speak(message, key, cooldown)
       if (urgent) void playUrgentBeep(kind === 'pedestrian' ? 4 : 3)
+    },
+    [],
+  )
+
+  const cropBoxToDataUrl = useCallback(
+    (
+      source: HTMLCanvasElement,
+      box: DetectionBox,
+      scale: number,
+    ): string | undefined => {
+      const pad = 6
+      const sx = Math.max(0, Math.floor(box.x * scale) - pad)
+      const sy = Math.max(0, Math.floor(box.y * scale) - pad)
+      const sw = Math.min(
+        source.width - sx,
+        Math.max(32, Math.ceil(box.width * scale) + pad * 2),
+      )
+      const sh = Math.min(
+        source.height - sy,
+        Math.max(32, Math.ceil(box.height * scale) + pad * 2),
+      )
+      if (sw < 16 || sh < 16) return undefined
+
+      const out = document.createElement('canvas')
+      const maxSide = 160
+      const ratio = Math.min(1, maxSide / Math.max(sw, sh))
+      out.width = Math.max(1, Math.round(sw * ratio))
+      out.height = Math.max(1, Math.round(sh * ratio))
+      const ctx = out.getContext('2d')
+      if (!ctx) return undefined
+      ctx.imageSmoothingEnabled = true
+      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, out.width, out.height)
+      try {
+        return out.toDataURL('image/jpeg', 0.82)
+      } catch {
+        return undefined
+      }
     },
     [],
   )
@@ -275,14 +329,18 @@ export function useDashcam() {
       }
     }
 
-    // Vis funn i Hendelser også når OCR ikke har lest tekst ennå
+    // Vis funn i Hendelser — skilt/info/pris med bildeutsnitt
     for (const box of scaled) {
+      if (box.kind !== 'sign' && box.kind !== 'info' && box.kind !== 'fuel') {
+        continue
+      }
+      const imageDataUrl = cropBoxToDataUrl(sample, box, scale)
       if (box.kind === 'sign') {
-        pushEvent('sign', 'Skilt oppdaget', false, false)
+        pushEvent('sign', 'Skilt', false, false, imageDataUrl)
       } else if (box.kind === 'info') {
-        pushEvent('info', 'Informasjonsskilt oppdaget', false, false)
-      } else if (box.kind === 'fuel') {
-        pushEvent('fuel', 'Mulig bensinpris / prisskilt', false, false)
+        pushEvent('info', 'Info', false, false, imageDataUrl)
+      } else {
+        pushEvent('fuel', 'Prisskilt', false, false, imageDataUrl)
       }
     }
 
@@ -328,34 +386,53 @@ export function useDashcam() {
           cw,
           ch,
         )
+        const imageDataUrl = cropBoxToDataUrl(sample, target, scale)
         const text = await readTextFromCanvas(crop)
         if (!text || text.length < 3) continue
         const classified = classifyOcrText(text)
         if (!classified.kind) continue
 
         if (classified.kind === 'police' && cfg.alertPolice) {
-          pushEvent('police', classified.message, true, true)
+          pushEvent('police', classified.message, true, true, imageDataUrl)
           target.kind = 'police'
           target.label = 'Politi'
         } else if (classified.kind === 'vegvesen' && cfg.alertVegvesen) {
-          pushEvent('vegvesen', classified.message, true, true)
+          pushEvent('vegvesen', classified.message, true, true, imageDataUrl)
           target.kind = 'vegvesen'
           target.label = 'Vegvesen'
         } else if (classified.kind === 'fuel') {
-          pushEvent('fuel', classified.message, false, cfg.speakFuel)
+          pushEvent(
+            'fuel',
+            classified.message,
+            false,
+            cfg.speakFuel,
+            imageDataUrl,
+          )
           target.kind = 'fuel'
           target.label = classified.message
         } else if (classified.kind === 'sign') {
-          pushEvent('sign', classified.message, false, cfg.speakSigns)
+          pushEvent(
+            'sign',
+            classified.message,
+            false,
+            cfg.speakSigns,
+            imageDataUrl,
+          )
           target.label = classified.message
         } else if (classified.kind === 'info') {
-          pushEvent('info', classified.message, false, cfg.speakSigns)
+          pushEvent(
+            'info',
+            classified.message,
+            false,
+            cfg.speakSigns,
+            imageDataUrl,
+          )
           target.label = 'Info'
         }
       }
       boxesRef.current = [...scaled]
     }
-  }, [pushEvent])
+  }, [cropBoxToDataUrl, pushEvent])
 
   const loop = useCallback(() => {
     const start = performance.now()

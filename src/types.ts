@@ -29,6 +29,8 @@ export interface DashcamEvent {
   spoken: boolean
   urgent: boolean
   at: number
+  /** Utsnitt av detekterte skilt/info/priser (data URL) */
+  imageDataUrl?: string
 }
 
 export interface DashcamSettings {
