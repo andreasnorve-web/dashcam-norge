@@ -1,0 +1,19 @@
+{
+  "name": "Dashcam Norge",
+  "short_name": "Dashcam",
+  "description": "Mobil dashcam med skilt, felt og varsler",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c1118",
+  "theme_color": "#0c1118",
+  "lang": "nb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
