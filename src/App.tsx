@@ -23,7 +23,6 @@ export default function App() {
     loadingMsg,
     error,
     events,
-    fps,
     settings,
     setSettings,
     start,
@@ -31,7 +30,7 @@ export default function App() {
     iosStandalone,
   } = useDashcam()
 
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [tab, setTab] = useState<'kontroll' | 'hendelser'>('hendelser')
   const { speedKmh } = useGpsSpeed(running)
 
@@ -40,27 +39,28 @@ export default function App() {
   }
 
   const latest = events[0]
-  const dashMode = !panelOpen
 
   useEffect(() => {
     if (events.length === 0) return
     setTab('hendelser')
   }, [events])
 
-  // Når kamera starter: gå rett i full dashbordvisning
   useEffect(() => {
-    if (running) setPanelOpen(false)
+    if (running) setDrawerOpen(false)
   }, [running])
 
   const handleStart = () => {
-    setPanelOpen(false)
+    setDrawerOpen(false)
     void start()
   }
 
+  const openDrawer = (nextTab?: 'hendelser' | 'kontroll') => {
+    if (nextTab) setTab(nextTab)
+    setDrawerOpen(true)
+  }
+
   return (
-    <div
-      className={`app${running ? ' app--live' : ''}${dashMode ? ' app--panel-closed' : ''}${dashMode && running ? ' app--dash' : ''}`}
-    >
+    <div className={`app${running ? ' app--live app--dash' : ''}`}>
       <header className="top">
         <div className="brand">
           <button
@@ -74,32 +74,20 @@ export default function App() {
           >
             {running ? 'Stopp' : 'Start'}
           </button>
-          {!dashMode && (
+          {!running && (
             <div className="brand-text">
               <h1>Dashcam Norge</h1>
               <p>Felt · skilt · bensin · varsler</p>
             </div>
           )}
         </div>
-        <div className="meta">
-          {!dashMode && (
-            <>
-              <span className={ready ? 'pill ok' : 'pill'}>
-                {ready ? 'Klar' : loadingMsg || 'Laster'}
-              </span>
-              {running && <span className="pill">{fps} det/s</span>}
-            </>
-          )}
-          <button
-            type="button"
-            className="icon-btn"
-            aria-expanded={panelOpen}
-            aria-controls="side-panel"
-            onClick={() => setPanelOpen((v) => !v)}
-          >
-            {panelOpen ? 'Skjul' : 'Meny'}
-          </button>
-        </div>
+        {!running && (
+          <div className="meta">
+            <span className={ready ? 'pill ok' : 'pill'}>
+              {ready ? 'Klar' : loadingMsg || 'Laster'}
+            </span>
+          </div>
+        )}
       </header>
 
       <main className="stage">
@@ -116,8 +104,8 @@ export default function App() {
                 </p>
               )}
               <p>
-                Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk Meny
-                for hendelser og innstillinger.
+                Trykk <strong>Start</strong> for fullskjerm-dashbord. Åpne
+                panelet via fanen til høyre for hendelser og innstillinger.
               </p>
               {error && <p className="error idle-error">{error}</p>}
               <button type="button" className="primary" onClick={handleStart}>
@@ -158,28 +146,75 @@ export default function App() {
           )}
         </div>
 
-        <aside id="side-panel" className="side" hidden={!panelOpen}>
-          <div className="tabs" role="tablist">
+        {/* Kant-fane til høyre — åpner skuff */}
+        <div className="edge-tabs" aria-hidden={drawerOpen}>
+          <button
+            type="button"
+            className="edge-tab"
+            aria-expanded={drawerOpen}
+            aria-controls="side-drawer"
+            onClick={() => openDrawer('hendelser')}
+          >
+            <span className="edge-tab-label">Hendelser</span>
+            {events.length > 0 && (
+              <span className="badge">{Math.min(events.length, 99)}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="edge-tab"
+            aria-expanded={drawerOpen}
+            aria-controls="side-drawer"
+            onClick={() => openDrawer('kontroll')}
+          >
+            <span className="edge-tab-label">Innstillinger</span>
+          </button>
+        </div>
+
+        {drawerOpen && (
+          <button
+            type="button"
+            className="drawer-backdrop"
+            aria-label="Lukk panel"
+            onClick={() => setDrawerOpen(false)}
+          />
+        )}
+
+        <aside
+          id="side-drawer"
+          className={`drawer${drawerOpen ? ' drawer--open' : ''}`}
+          aria-hidden={!drawerOpen}
+        >
+          <div className="drawer-head">
+            <div className="tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'hendelser'}
+                className={tab === 'hendelser' ? 'tab active' : 'tab'}
+                onClick={() => setTab('hendelser')}
+              >
+                Hendelser
+                {events.length > 0 && (
+                  <span className="badge">{Math.min(events.length, 99)}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'kontroll'}
+                className={tab === 'kontroll' ? 'tab active' : 'tab'}
+                onClick={() => setTab('kontroll')}
+              >
+                Innstillinger
+              </button>
+            </div>
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'hendelser'}
-              className={tab === 'hendelser' ? 'tab active' : 'tab'}
-              onClick={() => setTab('hendelser')}
+              className="drawer-close"
+              onClick={() => setDrawerOpen(false)}
             >
-              Hendelser
-              {events.length > 0 && (
-                <span className="badge">{Math.min(events.length, 99)}</span>
-              )}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'kontroll'}
-              className={tab === 'kontroll' ? 'tab active' : 'tab'}
-              onClick={() => setTab('kontroll')}
-            >
-              Innstillinger
+              Lukk
             </button>
           </div>
 
@@ -268,7 +303,7 @@ export default function App() {
         </aside>
       </main>
 
-      {!dashMode && (
+      {!running && (
         <footer className="foot">
           Kjører lokalt i nettleseren — kamera sendes ikke til server.
         </footer>
