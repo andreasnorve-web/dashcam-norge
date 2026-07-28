@@ -254,7 +254,7 @@ export function useDashcam() {
     const cfg = settingsRef.current
     for (const box of scaled) {
       if (box.kind === 'pedestrian' && cfg.alertPedestrians) {
-        pushEvent('pedestrian', 'Fotgjenger foran — vær oppmerksom', true, true)
+        pushEvent('pedestrian', 'Vær oppmerksom', true, true)
       }
     }
 
