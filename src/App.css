@@ -191,9 +191,15 @@
 }
 
 .safari-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
   color: var(--accent);
   font-size: 0.9rem;
   font-weight: 650;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.25rem;
 }
 
 .drawer-backdrop {

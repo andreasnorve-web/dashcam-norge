@@ -31,6 +31,7 @@ export default function App() {
     start,
     stop,
     iosStandalone,
+    pwaStandalone,
   } = useDashcam()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -110,10 +111,11 @@ export default function App() {
 
           {!running && (
             <div className="idle">
-              {iosStandalone && (
+              {(iosStandalone || pwaStandalone) && (
                 <p className="idle-warn">
-                  iPhone-appmodus har ofte kameraproblemer. Hvis Start feiler:
-                  åpne samme adresse i Safari i stedet.
+                  Installert app-modus kan blokkere kamera. Best: åpne siden i
+                  Safari/Chrome (ikke hjemskjerm-ikonet), tillat kamera, trykk
+                  Start.
                 </p>
               )}
               <p>
@@ -125,10 +127,20 @@ export default function App() {
               <button type="button" className="primary" onClick={handleStart}>
                 Start kamera
               </button>
-              {iosStandalone && (
-                <a className="safari-link" href={window.location.href}>
-                  Åpne i Safari
-                </a>
+              {(iosStandalone || pwaStandalone) && (
+                <button
+                  type="button"
+                  className="safari-link"
+                  onClick={() => {
+                    const url = `${window.location.origin}/?browser=1`
+                    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+                    if (!opened) {
+                      window.location.href = url
+                    }
+                  }}
+                >
+                  Åpne i nettleser
+                </button>
               )}
             </div>
           )}

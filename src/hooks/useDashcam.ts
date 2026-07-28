@@ -58,6 +58,15 @@ export function useDashcam() {
   const [iosStandalone] = useState(() =>
     typeof window !== 'undefined' ? isIosStandalone() : false,
   )
+  const [pwaStandalone] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        Boolean(
+          (navigator as Navigator & { standalone?: boolean }).standalone,
+        )
+      : false,
+  )
   const signHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -447,6 +456,8 @@ export function useDashcam() {
 
   const start = useCallback(async () => {
     setError(null)
+    // Vis viewport med en gang (idle-overlay vekk) så video kan tegnes i PWA.
+    setRunning(true)
     try {
       const stream = await openDashcamStream()
       streamRef.current = stream
@@ -456,23 +467,24 @@ export function useDashcam() {
         throw new Error('Videoelement mangler.')
       }
       await attachStreamToVideo(video, stream)
-      setRunning(true)
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(loop)
     } catch (e) {
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
+      if (videoRef.current) videoRef.current.srcObject = null
+      setRunning(false)
       let message =
         e instanceof Error
           ? e.message
           : 'Kamera tilgang ble avslått. Bruk HTTPS og tillat kamera.'
-      if (isIosStandalone()) {
+      if (isIosStandalone() || pwaStandalone) {
         message +=
-          ' Tips: På iPhone fungerer kamera mer stabilt i Safari — slett ikonet og bruk Safari, eller oppdater iOS.'
+          ' Slett hjemskjerm-ikonet, åpne lenken i Safari/Chrome, tillat kamera, og legg til på nytt hvis du vil.'
       }
       setError(message)
     }
-  }, [loop])
+  }, [loop, pwaStandalone])
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
@@ -512,5 +524,6 @@ export function useDashcam() {
     start,
     stop,
     iosStandalone,
+    pwaStandalone,
   }
 }

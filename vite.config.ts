@@ -20,15 +20,15 @@ export default defineConfig({
           'Mobil dashcam med veibaner, skilt, bensinpriser og varsler',
         theme_color: '#0c1118',
         background_color: '#0c1118',
-        display: 'standalone',
-        // iOS: unngå fullscreen-standalone som ofte bryter kamera.
-        // Chrome/Android kan fortsatt installere som app.
-        display_override: ['standalone', 'minimal-ui', 'browser'],
+        // Ikke 'standalone': iOS PWA i standalone bryter ofte getUserMedia.
+        // minimal-ui = installerbar, men kamera fungerer mer pålitelig.
+        display: 'minimal-ui',
+        display_override: ['minimal-ui', 'browser'],
         orientation: 'any',
-        start_url: '/',
+        start_url: '/?source=pwa',
         scope: '/',
         lang: 'nb',
-        id: '/',
+        id: '/dashcam-norge',
         icons: [
           {
             src: 'icon-192.png',
