@@ -29,16 +29,34 @@
 }
 
 .brand-mark {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: auto;
+  min-width: 3.6rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
   flex: 0 0 auto;
-  border-radius: 0.55rem;
+  border: 0;
+  border-radius: 0.65rem;
   display: grid;
   place-items: center;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.brand-mark--start {
   background: linear-gradient(145deg, #2dd4a8, #1f8f7a);
   color: #04120e;
+}
+
+.brand-mark--stop {
+  background: linear-gradient(145deg, #ff5c5c, #d62828);
+  color: #fff;
+}
+
+.brand-mark:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .brand-text {
@@ -171,24 +189,6 @@
   background: rgba(60, 12, 12, 0.78);
 }
 
-.fab-row {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.7rem;
-  display: none;
-  justify-content: center;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.fab {
-  pointer-events: auto;
-  min-width: 7.5rem;
-  min-height: 2.75rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
 .side {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -256,16 +256,6 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-}
-
-.desktop-only {
-  display: flex;
-}
-
 button {
   border: 0;
   border-radius: 0.7rem;
@@ -287,6 +277,25 @@ button:disabled {
 .danger {
   background: var(--danger);
   color: white;
+}
+
+button.brand-mark {
+  width: auto;
+  min-width: 3.6rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+}
+
+button.brand-mark--start {
+  background: linear-gradient(145deg, #2dd4a8, #1f8f7a);
+  color: #04120e;
+}
+
+button.brand-mark--stop {
+  background: linear-gradient(145deg, #ff5c5c, #d62828);
+  color: #fff;
 }
 
 .checks {
@@ -404,14 +413,6 @@ button:disabled {
     max-height: 38dvh;
   }
 
-  .fab-row {
-    display: flex;
-  }
-
-  .desktop-only {
-    display: none;
-  }
-
   .app--live .side {
     max-height: 32dvh;
   }
@@ -446,9 +447,10 @@ button:disabled {
   }
 
   .brand-mark {
-    width: 1.9rem;
-    height: 1.9rem;
+    min-width: 3.2rem;
+    height: 2.1rem;
     font-size: 0.75rem;
+    padding: 0 0.55rem;
   }
 
   .stage {
@@ -457,20 +459,6 @@ button:disabled {
 
   .viewport {
     border-radius: 0.65rem;
-  }
-
-  .fab-row {
-    display: flex;
-    bottom: 0.45rem;
-  }
-
-  .fab {
-    min-height: 2.4rem;
-    min-width: 6.5rem;
-  }
-
-  .desktop-only {
-    display: none;
   }
 
   .side {

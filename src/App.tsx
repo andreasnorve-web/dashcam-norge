@@ -42,7 +42,18 @@ export default function App() {
     <div className={`app${running ? ' app--live' : ''}${panelOpen ? '' : ' app--panel-closed'}`}>
       <header className="top">
         <div className="brand">
-          <span className="brand-mark">DC</span>
+          <button
+            type="button"
+            className={`brand-mark${running ? ' brand-mark--stop' : ' brand-mark--start'}`}
+            disabled={!running && !ready}
+            aria-label={running ? 'Stopp kamera' : 'Start kamera'}
+            onClick={() => {
+              if (running) stop()
+              else void start()
+            }}
+          >
+            {running ? 'Stopp' : ready ? 'Start' : '…'}
+          </button>
           <div className="brand-text">
             <h1>Dashcam Norge</h1>
             <p>Felt · skilt · bensin · varsler</p>
@@ -73,16 +84,9 @@ export default function App() {
           {!running && (
             <div className="idle">
               <p>
-                Monter telefonen mot veien, trykk start, og hold skjermen våken.
+                Monter telefonen mot veien, trykk <strong>Start</strong> oppe til
+                venstre, og hold skjermen våken.
               </p>
-              <button
-                type="button"
-                className="primary"
-                disabled={!ready}
-                onClick={() => void start()}
-              >
-                {ready ? 'Start kamera' : 'Laster modeller…'}
-              </button>
             </div>
           )}
 
@@ -92,23 +96,6 @@ export default function App() {
               <span className="msg">{latest.message}</span>
             </div>
           )}
-
-          <div className="fab-row">
-            {running ? (
-              <button type="button" className="danger fab" onClick={stop}>
-                Stopp
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="primary fab"
-                disabled={!ready}
-                onClick={() => void start()}
-              >
-                Start
-              </button>
-            )}
-          </div>
         </div>
 
         <aside id="side-panel" className="side" hidden={!panelOpen}>
@@ -138,22 +125,6 @@ export default function App() {
 
           {tab === 'kontroll' ? (
             <section className="panel">
-              <div className="row desktop-only">
-                {running ? (
-                  <button type="button" className="danger" onClick={stop}>
-                    Stopp
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={!ready}
-                    onClick={() => void start()}
-                  >
-                    Start
-                  </button>
-                )}
-              </div>
               {error && <p className="error">{error}</p>}
               <div className="checks">
                 <label className="check">
