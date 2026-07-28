@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
 import type { AlertKind, DashcamSettings } from './types'
 import './App.css'
@@ -28,16 +29,21 @@ export default function App() {
     stop,
   } = useDashcam()
 
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [tab, setTab] = useState<'kontroll' | 'hendelser'>('kontroll')
+
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
   }
 
+  const latest = events[0]
+
   return (
-    <div className="app">
+    <div className={`app${running ? ' app--live' : ''}${panelOpen ? '' : ' app--panel-closed'}`}>
       <header className="top">
         <div className="brand">
           <span className="brand-mark">DC</span>
-          <div>
+          <div className="brand-text">
             <h1>Dashcam Norge</h1>
             <p>Felt · skilt · bensin · varsler</p>
           </div>
@@ -47,6 +53,15 @@ export default function App() {
             {ready ? 'Klar' : loadingMsg || 'Laster'}
           </span>
           {running && <span className="pill">{fps} det/s</span>}
+          <button
+            type="button"
+            className="icon-btn"
+            aria-expanded={panelOpen}
+            aria-controls="side-panel"
+            onClick={() => setPanelOpen((v) => !v)}
+          >
+            {panelOpen ? 'Skjul' : 'Meny'}
+          </button>
         </div>
       </header>
 
@@ -54,6 +69,7 @@ export default function App() {
         <div className="viewport">
           <video ref={videoRef} playsInline muted autoPlay />
           <canvas ref={overlayRef} className="overlay" />
+
           {!running && (
             <div className="idle">
               <p>
@@ -69,106 +85,155 @@ export default function App() {
               </button>
             </div>
           )}
+
+          {running && latest && (
+            <div className={`toast${latest.urgent ? ' toast--urgent' : ''}`}>
+              <span className="kind">{KIND_LABEL[latest.kind]}</span>
+              <span className="msg">{latest.message}</span>
+            </div>
+          )}
+
+          <div className="fab-row">
+            {running ? (
+              <button type="button" className="danger fab" onClick={stop}>
+                Stopp
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="primary fab"
+                disabled={!ready}
+                onClick={() => void start()}
+              >
+                Start
+              </button>
+            )}
+          </div>
         </div>
 
-        <aside className="side">
-          <section className="panel">
-            <h2>Kontroll</h2>
-            <div className="row">
-              {running ? (
-                <button type="button" className="danger" onClick={stop}>
-                  Stopp
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={!ready}
-                  onClick={() => void start()}
-                >
-                  Start
-                </button>
+        <aside id="side-panel" className="side" hidden={!panelOpen}>
+          <div className="tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'kontroll'}
+              className={tab === 'kontroll' ? 'tab active' : 'tab'}
+              onClick={() => setTab('kontroll')}
+            >
+              Kontroll
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'hendelser'}
+              className={tab === 'hendelser' ? 'tab active' : 'tab'}
+              onClick={() => setTab('hendelser')}
+            >
+              Hendelser
+              {events.length > 0 && (
+                <span className="badge">{Math.min(events.length, 99)}</span>
               )}
-            </div>
-            {error && <p className="error">{error}</p>}
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.showLanes}
-                onChange={() => toggle('showLanes')}
-              />
-              Vis veibaner
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.speakSigns}
-                onChange={() => toggle('speakSigns')}
-              />
-              Les opp skilt
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.speakFuel}
-                onChange={() => toggle('speakFuel')}
-              />
-              Les opp bensinpriser
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.alertPedestrians}
-                onChange={() => toggle('alertPedestrians')}
-              />
-              Varsle fotgjengere
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.alertPolice}
-                onChange={() => toggle('alertPolice')}
-              />
-              Varsle politi
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={settings.alertVegvesen}
-                onChange={() => toggle('alertVegvesen')}
-              />
-              Varsle vegvesen
-            </label>
-          </section>
+            </button>
+          </div>
 
-          <section className="panel events">
-            <h2>Hendelser</h2>
-            {events.length === 0 ? (
-              <p className="muted">Ingen deteksjoner ennå.</p>
-            ) : (
-              <ul>
-                {events.map((ev) => (
-                  <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
-                    <span className="kind">{KIND_LABEL[ev.kind]}</span>
-                    <span className="msg">{ev.message}</span>
-                    <time>
-                      {new Date(ev.at).toLocaleTimeString('nb-NO', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {tab === 'kontroll' ? (
+            <section className="panel">
+              <div className="row desktop-only">
+                {running ? (
+                  <button type="button" className="danger" onClick={stop}>
+                    Stopp
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={!ready}
+                    onClick={() => void start()}
+                  >
+                    Start
+                  </button>
+                )}
+              </div>
+              {error && <p className="error">{error}</p>}
+              <div className="checks">
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.showLanes}
+                    onChange={() => toggle('showLanes')}
+                  />
+                  Vis veibaner
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.speakSigns}
+                    onChange={() => toggle('speakSigns')}
+                  />
+                  Les opp skilt
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.speakFuel}
+                    onChange={() => toggle('speakFuel')}
+                  />
+                  Les opp bensinpriser
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.alertPedestrians}
+                    onChange={() => toggle('alertPedestrians')}
+                  />
+                  Varsle fotgjengere
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.alertPolice}
+                    onChange={() => toggle('alertPolice')}
+                  />
+                  Varsle politi
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={settings.alertVegvesen}
+                    onChange={() => toggle('alertVegvesen')}
+                  />
+                  Varsle vegvesen
+                </label>
+              </div>
+            </section>
+          ) : (
+            <section className="panel events">
+              {events.length === 0 ? (
+                <p className="muted">Ingen deteksjoner ennå.</p>
+              ) : (
+                <ul>
+                  {events.map((ev) => (
+                    <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
+                      <span className="kind">{KIND_LABEL[ev.kind]}</span>
+                      <span className="msg">{ev.message}</span>
+                      <time>
+                        {new Date(ev.at).toLocaleTimeString('nb-NO', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
         </aside>
       </main>
 
       <footer className="foot">
-        Kjører lokalt i nettleseren — kamera sendes ikke til server. Krever HTTPS
-        (eller localhost) for kameratilgang.
+        Kjører lokalt i nettleseren — kamera sendes ikke til server.
       </footer>
     </div>
   )
