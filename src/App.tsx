@@ -25,6 +25,7 @@ export default function App() {
     loadingMsg,
     error,
     events,
+    signHud,
     settings,
     setSettings,
     start,
@@ -41,20 +42,9 @@ export default function App() {
   }
 
   const latest = events[0]
-  const latestVisual = events.find(
-    (e) => e.kind === 'sign' || e.kind === 'info' || e.kind === 'fuel',
-  )
-  const latestIllustration = latestVisual
-    ? illustrationFromEvent(latestVisual.kind, latestVisual.message)
+  const signIllustration = signHud
+    ? illustrationFromEvent(signHud.kind, signHud.message)
     : null
-  const showSignHud =
-    latestIllustration &&
-    latestVisual &&
-    (!latest ||
-      latest.kind === 'sign' ||
-      latest.kind === 'info' ||
-      latest.kind === 'fuel' ||
-      Date.now() - latestVisual.at < 10000)
 
   useEffect(() => {
     if (events.length === 0) return
@@ -150,11 +140,14 @@ export default function App() {
                   <div className="hud-card hud-card--urgent">
                     <span className="msg">{error}</span>
                   </div>
-                ) : showSignHud && latestIllustration ? (
-                  <div className="hud-sign">
-                    <SignIllustrationView illustration={latestIllustration} />
+                ) : signIllustration ? (
+                  <div className="hud-sign" key={signHud?.id}>
+                    <SignIllustrationView illustration={signIllustration} />
                   </div>
-                ) : latest ? (
+                ) : latest &&
+                  latest.kind !== 'sign' &&
+                  latest.kind !== 'info' &&
+                  latest.kind !== 'fuel' ? (
                   <div
                     className={`hud-card${latest.urgent ? ' hud-card--urgent' : ''}`}
                   >

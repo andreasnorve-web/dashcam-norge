@@ -52,11 +52,13 @@ export function useDashcam() {
   const [loadingMsg, setLoadingMsg] = useState('Laster modeller…')
   const [error, setError] = useState<string | null>(null)
   const [events, setEvents] = useState<DashcamEvent[]>([])
+  const [signHud, setSignHud] = useState<DashcamEvent | null>(null)
   const [fps, setFps] = useState(0)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [iosStandalone] = useState(() =>
     typeof window !== 'undefined' ? isIosStandalone() : false,
   )
+  const signHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     settingsRef.current = settings
@@ -93,6 +95,15 @@ export function useDashcam() {
     }
   }, [])
 
+  const showSignHud = useCallback((ev: DashcamEvent) => {
+    setSignHud(ev)
+    if (signHudTimer.current) clearTimeout(signHudTimer.current)
+    signHudTimer.current = setTimeout(() => {
+      setSignHud(null)
+      signHudTimer.current = null
+    }, 5000)
+  }, [])
+
   const pushEvent = useCallback(
     (
       kind: DashcamEvent['kind'],
@@ -104,23 +115,12 @@ export function useDashcam() {
       const key = `${kind}:${message}`
       const now = Date.now()
       const last = alertCooldown.current.get(key) ?? 0
-      const visual =
-        Boolean(imageDataUrl) &&
-        (kind === 'sign' || kind === 'info' || kind === 'fuel')
-      const cooldown = urgent ? 8000 : visual ? 2500 : 14000
+      const isSignKind =
+        kind === 'sign' || kind === 'info' || kind === 'fuel'
+      // Skilt: lengre pause mellom samme melding, vis 5 sek + les opp
+      const cooldown = urgent ? 8000 : isSignKind ? 12000 : 14000
 
-      if (now - last < cooldown) {
-        // Oppdater skiltbilde på siste hendelse uten ny rad
-        if (visual && imageDataUrl) {
-          setEvents((prev) => {
-            if (prev.length === 0 || prev[0].kind !== kind) return prev
-            const next = [...prev]
-            next[0] = { ...next[0], imageDataUrl, at: now }
-            return next
-          })
-        }
-        return
-      }
+      if (now - last < cooldown) return
       alertCooldown.current.set(key, now)
 
       const ev: DashcamEvent = {
@@ -134,10 +134,25 @@ export function useDashcam() {
       }
       setEvents((prev) => [ev, ...prev].slice(0, 30))
 
-      if (shouldSpeak) speak(message, key, cooldown)
+      if (isSignKind && shouldSpeak) {
+        showSignHud(ev)
+        // Les alltid opp skilt/info/bensin når det vises
+        const spoken =
+          kind === 'sign' && message === 'Skilt'
+            ? 'Trafikkskilt'
+            : kind === 'info' && message === 'Info'
+              ? 'Informasjonsskilt'
+              : kind === 'fuel' && message === 'Prisskilt'
+                ? 'Bensinpris'
+                : message.replace(/^Skilt:\s*/i, '').replace(/^Info:\s*/i, '').replace(/^Bensinpris:\s*/i, '')
+        speak(spoken, key, cooldown)
+      } else if (shouldSpeak) {
+        speak(message, key, cooldown)
+      }
+
       if (urgent) void playUrgentBeep(kind === 'pedestrian' ? 4 : 3)
     },
-    [],
+    [showSignHud],
   )
 
   const cropBoxToDataUrl = useCallback(
@@ -329,7 +344,7 @@ export function useDashcam() {
       }
     }
 
-    // Vis funn i Hendelser — skilt/info/pris med bildeutsnitt
+    // Fargefunn: logg stille — HUD + opplesing skjer når OCR bekrefter innhold
     for (const box of scaled) {
       if (box.kind !== 'sign' && box.kind !== 'info' && box.kind !== 'fuel') {
         continue
@@ -401,32 +416,14 @@ export function useDashcam() {
           target.kind = 'vegvesen'
           target.label = 'Vegvesen'
         } else if (classified.kind === 'fuel') {
-          pushEvent(
-            'fuel',
-            classified.message,
-            false,
-            cfg.speakFuel,
-            imageDataUrl,
-          )
+          pushEvent('fuel', classified.message, false, true, imageDataUrl)
           target.kind = 'fuel'
           target.label = classified.message
         } else if (classified.kind === 'sign') {
-          pushEvent(
-            'sign',
-            classified.message,
-            false,
-            cfg.speakSigns,
-            imageDataUrl,
-          )
+          pushEvent('sign', classified.message, false, true, imageDataUrl)
           target.label = classified.message
         } else if (classified.kind === 'info') {
-          pushEvent(
-            'info',
-            classified.message,
-            false,
-            cfg.speakSigns,
-            imageDataUrl,
-          )
+          pushEvent('info', classified.message, false, true, imageDataUrl)
           target.label = 'Info'
         }
       }
@@ -485,12 +482,18 @@ export function useDashcam() {
     boxesRef.current = []
     lanesRef.current = { left: null, right: null }
     setRunning(false)
+    setSignHud(null)
+    if (signHudTimer.current) {
+      clearTimeout(signHudTimer.current)
+      signHudTimer.current = null
+    }
   }, [])
 
   useEffect(() => {
     return () => {
       cancelAnimationFrame(rafRef.current)
       streamRef.current?.getTracks().forEach((t) => t.stop())
+      if (signHudTimer.current) clearTimeout(signHudTimer.current)
     }
   }, [])
 
@@ -502,6 +505,7 @@ export function useDashcam() {
     loadingMsg,
     error,
     events,
+    signHud,
     fps,
     settings,
     setSettings,
