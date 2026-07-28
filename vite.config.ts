@@ -21,6 +21,9 @@ export default defineConfig({
         theme_color: '#0c1118',
         background_color: '#0c1118',
         display: 'standalone',
+        // iOS: unngå fullscreen-standalone som ofte bryter kamera.
+        // Chrome/Android kan fortsatt installere som app.
+        display_override: ['standalone', 'minimal-ui', 'browser'],
         orientation: 'any',
         start_url: '/',
         scope: '/',

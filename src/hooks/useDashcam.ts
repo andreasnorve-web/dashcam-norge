@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  attachStreamToVideo,
+  isIosStandalone,
+  openDashcamStream,
+} from '../camera/openCamera'
 import { playUrgentBeep } from '../alerts/audioAlert'
 import { speak } from '../alerts/speech'
 import { detectLanes } from '../detection/laneDetector'
@@ -40,6 +45,7 @@ export function useDashcam() {
   const zonesRef = useRef<ReturnType<typeof buildRoadSearchZones> | null>(null)
   const settingsRef = useRef(DEFAULT_SETTINGS)
   const alertCooldown = useRef(new Map<string, number>())
+  const readyRef = useRef(false)
 
   const [running, setRunning] = useState(false)
   const [ready, setReady] = useState(false)
@@ -48,10 +54,17 @@ export function useDashcam() {
   const [events, setEvents] = useState<DashcamEvent[]>([])
   const [fps, setFps] = useState(0)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [iosStandalone] = useState(() =>
+    typeof window !== 'undefined' ? isIosStandalone() : false,
+  )
 
   useEffect(() => {
     settingsRef.current = settings
   }, [settings])
+
+  useEffect(() => {
+    readyRef.current = ready
+  }, [ready])
 
   useEffect(() => {
     let cancelled = false
@@ -66,8 +79,12 @@ export function useDashcam() {
         setReady(true)
         setLoadingMsg('')
       } catch (e) {
+        // Kamera skal fortsatt fungere uten modeller
+        setLoadingMsg('Modeller feilet — kamera kan startes')
         setError(
-          e instanceof Error ? e.message : 'Kunne ikke laste AI-modeller',
+          e instanceof Error
+            ? `AI-modeller: ${e.message}`
+            : 'Kunne ikke laste AI-modeller',
         )
       }
     })()
@@ -212,7 +229,7 @@ export function useDashcam() {
         : null,
     }
 
-    const objects = await detectObjects(sample)
+    const objects = readyRef.current ? await detectObjects(sample) : []
     const signs = findSignRegions(imageData, sw, sh, lanes)
     const zonesSample = buildRoadSearchZones(sw, sh, lanes)
     zonesRef.current = {
@@ -270,7 +287,10 @@ export function useDashcam() {
     }
 
     const now = Date.now()
-    if (now - lastOcrRef.current >= cfg.ocrIntervalMs) {
+    if (
+      readyRef.current &&
+      now - lastOcrRef.current >= cfg.ocrIntervalMs
+    ) {
       lastOcrRef.current = now
       const ocrTargets = scaled
         .filter(
@@ -354,72 +374,29 @@ export function useDashcam() {
   const start = useCallback(async () => {
     setError(null)
     try {
-      if (!window.isSecureContext) {
-        throw new Error(
-          'Kamera krever HTTPS. Åpne via railway-adressen, ikke HTTP.',
-        )
-      }
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error(
-          'Kamera støttes ikke her. Slett hjemskjerm-ikonet, åpne siden i Safari/Chrome, tillat kamera, og legg til på nytt.',
-        )
-      }
-
-      const attempts: MediaStreamConstraints[] = [
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        { audio: false, video: { facingMode: 'environment' } },
-        { audio: false, video: true },
-      ]
-
-      let stream: MediaStream | null = null
-      let lastErr: unknown = null
-      for (const constraints of attempts) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints)
-          break
-        } catch (err) {
-          lastErr = err
-        }
-      }
-      if (!stream) {
-        const name =
-          lastErr && typeof lastErr === 'object' && 'name' in lastErr
-            ? String((lastErr as { name: string }).name)
-            : ''
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          throw new Error(
-            'Kameratilgang er blokkert. Tillat kamera for denne appen i telefonens innstillinger, og start på nytt.',
-          )
-        }
-        throw lastErr instanceof Error
-          ? lastErr
-          : new Error('Kunne ikke starte kameraet.')
-      }
-
+      const stream = await openDashcamStream()
       streamRef.current = stream
       const video = videoRef.current
-      if (!video) return
-      video.setAttribute('playsinline', 'true')
-      video.setAttribute('webkit-playsinline', 'true')
-      video.muted = true
-      video.srcObject = stream
-      await video.play()
+      if (!video) {
+        stream.getTracks().forEach((t) => t.stop())
+        throw new Error('Videoelement mangler.')
+      }
+      await attachStreamToVideo(video, stream)
       setRunning(true)
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(loop)
     } catch (e) {
-      setError(
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      let message =
         e instanceof Error
           ? e.message
-          : 'Kamera tilgang ble avslått. Bruk HTTPS og tillat kamera.',
-      )
+          : 'Kamera tilgang ble avslått. Bruk HTTPS og tillat kamera.'
+      if (isIosStandalone()) {
+        message +=
+          ' Tips: På iPhone fungerer kamera mer stabilt i Safari — slett ikonet og bruk Safari, eller oppdater iOS.'
+      }
+      setError(message)
     }
   }, [loop])
 
@@ -453,5 +430,6 @@ export function useDashcam() {
     setSettings,
     start,
     stop,
+    iosStandalone,
   }
 }

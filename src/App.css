@@ -168,6 +168,26 @@
   line-height: 1.35;
 }
 
+.idle-warn {
+  color: #f5c542 !important;
+  font-size: 0.85rem !important;
+}
+
+.idle-error {
+  max-width: 22rem;
+  text-align: left;
+}
+
+.idle .primary {
+  justify-self: center;
+}
+
+.safari-link {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
 .toast {
   position: absolute;
   left: 0.6rem;

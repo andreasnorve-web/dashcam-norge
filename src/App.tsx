@@ -27,6 +27,7 @@ export default function App() {
     setSettings,
     start,
     stop,
+    iosStandalone,
   } = useDashcam()
 
   const [panelOpen, setPanelOpen] = useState(true)
@@ -50,14 +51,13 @@ export default function App() {
           <button
             type="button"
             className={`brand-mark${running ? ' brand-mark--stop' : ' brand-mark--start'}`}
-            disabled={!running && !ready}
             aria-label={running ? 'Stopp kamera' : 'Start kamera'}
             onClick={() => {
               if (running) stop()
               else void start()
             }}
           >
-            {running ? 'Stopp' : ready ? 'Start' : '…'}
+            {running ? 'Stopp' : 'Start'}
           </button>
           <div className="brand-text">
             <h1>Dashcam Norge</h1>
@@ -88,16 +88,39 @@ export default function App() {
 
           {!running && (
             <div className="idle">
+              {iosStandalone && (
+                <p className="idle-warn">
+                  iPhone-appmodus har ofte kameraproblemer. Hvis Start feiler:
+                  åpne samme adresse i Safari i stedet.
+                </p>
+              )}
               <p>
-                Monter telefonen mot veien, trykk <strong>Start</strong> oppe til
-                venstre, og hold skjermen våken. Første gang: tillat kamera. På
-                iPhone: åpne først i Safari, tillat kamera, deretter «Del → Legg
-                til på Hjem-skjerm».
+                Trykk <strong>Start</strong> og tillat kamera. Modellene lastes i
+                bakgrunnen.
               </p>
+              {error && <p className="error idle-error">{error}</p>}
+              <button
+                type="button"
+                className="primary"
+                onClick={() => void start()}
+              >
+                Start kamera
+              </button>
+              {iosStandalone && (
+                <a className="safari-link" href={window.location.href}>
+                  Åpne i Safari
+                </a>
+              )}
             </div>
           )}
 
-          {running && latest && (
+          {running && error && (
+            <div className="toast toast--urgent">
+              <span className="msg">{error}</span>
+            </div>
+          )}
+
+          {running && !error && latest && (
             <div className={`toast${latest.urgent ? ' toast--urgent' : ''}`}>
               <span className="kind">{KIND_LABEL[latest.kind]}</span>
               <span className="msg">{latest.message}</span>
@@ -136,6 +159,7 @@ export default function App() {
                 Skilt søkes til høyre for høyre feltlinje. Bensinpriser høyere
                 opp. Kontroll/politi lavt til høyre.
               </p>
+              {error && <p className="error">{error}</p>}
               {events.length === 0 ? (
                 <p className="muted">Ingen deteksjoner ennå.</p>
               ) : (
