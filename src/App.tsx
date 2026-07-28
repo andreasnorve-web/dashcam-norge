@@ -90,7 +90,9 @@ export default function App() {
             <div className="idle">
               <p>
                 Monter telefonen mot veien, trykk <strong>Start</strong> oppe til
-                venstre, og hold skjermen våken.
+                venstre, og hold skjermen våken. Første gang: tillat kamera. På
+                iPhone: åpne først i Safari, tillat kamera, deretter «Del → Legg
+                til på Hjem-skjerm».
               </p>
             </div>
           )}

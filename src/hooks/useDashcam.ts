@@ -354,17 +354,61 @@ export function useDashcam() {
   const start = useCallback(async () => {
     setError(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+      if (!window.isSecureContext) {
+        throw new Error(
+          'Kamera krever HTTPS. Åpne via railway-adressen, ikke HTTP.',
+        )
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          'Kamera støttes ikke her. Slett hjemskjerm-ikonet, åpne siden i Safari/Chrome, tillat kamera, og legg til på nytt.',
+        )
+      }
+
+      const attempts: MediaStreamConstraints[] = [
+        {
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         },
-      })
+        { audio: false, video: { facingMode: 'environment' } },
+        { audio: false, video: true },
+      ]
+
+      let stream: MediaStream | null = null
+      let lastErr: unknown = null
+      for (const constraints of attempts) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+          break
+        } catch (err) {
+          lastErr = err
+        }
+      }
+      if (!stream) {
+        const name =
+          lastErr && typeof lastErr === 'object' && 'name' in lastErr
+            ? String((lastErr as { name: string }).name)
+            : ''
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          throw new Error(
+            'Kameratilgang er blokkert. Tillat kamera for denne appen i telefonens innstillinger, og start på nytt.',
+          )
+        }
+        throw lastErr instanceof Error
+          ? lastErr
+          : new Error('Kunne ikke starte kameraet.')
+      }
+
       streamRef.current = stream
       const video = videoRef.current
       if (!video) return
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
+      video.muted = true
       video.srcObject = stream
       await video.play()
       setRunning(true)
