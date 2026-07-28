@@ -213,6 +213,17 @@ export function useDashcam() {
       }
     }
 
+    // Vis funn i Hendelser også når OCR ikke har lest tekst ennå
+    for (const box of scaled) {
+      if (box.kind === 'sign') {
+        pushEvent('sign', 'Skilt oppdaget', false, false)
+      } else if (box.kind === 'info') {
+        pushEvent('info', 'Informasjonsskilt oppdaget', false, false)
+      } else if (box.kind === 'fuel') {
+        pushEvent('fuel', 'Mulig bensinpris / prisskilt', false, false)
+      }
+    }
+
     const now = Date.now()
     if (now - lastOcrRef.current >= cfg.ocrIntervalMs) {
       lastOcrRef.current = now
@@ -260,15 +271,15 @@ export function useDashcam() {
           pushEvent('vegvesen', classified.message, true, true)
           target.kind = 'vegvesen'
           target.label = 'Vegvesen'
-        } else if (classified.kind === 'fuel' && cfg.speakFuel) {
-          pushEvent('fuel', classified.message, false, true)
+        } else if (classified.kind === 'fuel') {
+          pushEvent('fuel', classified.message, false, cfg.speakFuel)
           target.kind = 'fuel'
           target.label = classified.message
-        } else if (classified.kind === 'sign' && cfg.speakSigns) {
-          pushEvent('sign', classified.message, false, true)
+        } else if (classified.kind === 'sign') {
+          pushEvent('sign', classified.message, false, cfg.speakSigns)
           target.label = classified.message
-        } else if (classified.kind === 'info' && cfg.speakSigns) {
-          pushEvent('info', classified.message, false, true)
+        } else if (classified.kind === 'info') {
+          pushEvent('info', classified.message, false, cfg.speakSigns)
           target.label = 'Info'
         }
       }
