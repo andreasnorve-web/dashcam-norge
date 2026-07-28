@@ -37,15 +37,22 @@ export function classifyOcrText(text: string): {
 } {
   const upper = text.toUpperCase()
 
-  if (/\bPOLITI\b/.test(upper) || /\bPOLICE\b/.test(upper)) {
-    return { kind: 'police', message: 'Politi oppdaget' }
+  if (
+    /\bPOLITI\b/.test(upper) ||
+    /\bPOLICE\b/.test(upper) ||
+    /\bFARTSKONTROLL\b/.test(upper) ||
+    /\bALKOHOLKONTROLL\b/.test(upper) ||
+    /\bTRAFIKKONTROLL\b/.test(upper) ||
+    (/\bKONTROLL\b/.test(upper) && !/\bKONTROLLPANEL\b/.test(upper))
+  ) {
+    return { kind: 'police', message: 'Kontroll: politi i nærheten' }
   }
   if (
     /\bVEGVESEN\b/.test(upper) ||
     /\bSTATENS VEGVESEN\b/.test(upper) ||
     /\bSVV\b/.test(upper)
   ) {
-    return { kind: 'vegvesen', message: 'Statens vegvesen oppdaget' }
+    return { kind: 'vegvesen', message: 'Kontroll: Statens vegvesen' }
   }
 
   const fuelMatch = upper.match(
@@ -57,7 +64,7 @@ export function classifyOcrText(text: string): {
     const fuel = /DIESEL/.test(upper) ? 'Diesel' : 'Bensin'
     return {
       kind: 'fuel',
-      message: `${fuel} ${price} kroner`,
+      message: `Bensinpris: ${fuel} ${price} kr/l`,
     }
   }
 
@@ -70,7 +77,7 @@ export function classifyOcrText(text: string): {
   ) {
     return {
       kind: 'sign',
-      message: `Fartsgrense ${speed[1]}`,
+      message: `Skilt: fartsgrense ${speed[1]}`,
     }
   }
 
@@ -80,16 +87,17 @@ export function classifyOcrText(text: string): {
     )
   ) {
     const short = text.slice(0, 80)
-    return { kind: 'info', message: `Informasjonsskilt: ${short}` }
+    return { kind: 'info', message: `Info: ${short}` }
   }
 
   // Isolert fartsgrense-tall i skilt-ROI
   if (speed && Number(speed[1]) >= 30 && Number(speed[1]) <= 110) {
     const n = Number(speed[1])
     if ([30, 40, 50, 60, 70, 80, 90, 100, 110].includes(n)) {
-      return { kind: 'sign', message: `Fartsgrense ${n}` }
+      return { kind: 'sign', message: `Skilt: fartsgrense ${n}` }
     }
   }
 
   return { kind: null, message: '' }
 }
+

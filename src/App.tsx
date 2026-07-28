@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
 import type { AlertKind, DashcamSettings } from './types'
 import './App.css'
@@ -7,10 +7,10 @@ const KIND_LABEL: Record<AlertKind, string> = {
   lane: 'Felt',
   sign: 'Skilt',
   info: 'Info',
-  fuel: 'Drivstoff',
+  fuel: 'Bensin',
   pedestrian: 'Fotgjenger',
-  police: 'Politi',
-  vegvesen: 'Vegvesen',
+  police: 'Kontroll',
+  vegvesen: 'Kontroll',
 }
 
 export default function App() {
@@ -30,13 +30,18 @@ export default function App() {
   } = useDashcam()
 
   const [panelOpen, setPanelOpen] = useState(true)
-  const [tab, setTab] = useState<'kontroll' | 'hendelser'>('kontroll')
+  const [tab, setTab] = useState<'kontroll' | 'hendelser'>('hendelser')
 
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
   }
 
   const latest = events[0]
+
+  useEffect(() => {
+    if (events.length === 0) return
+    setTab('hendelser')
+  }, [events])
 
   return (
     <div className={`app${running ? ' app--live' : ''}${panelOpen ? '' : ' app--panel-closed'}`}>
@@ -103,15 +108,6 @@ export default function App() {
             <button
               type="button"
               role="tab"
-              aria-selected={tab === 'kontroll'}
-              className={tab === 'kontroll' ? 'tab active' : 'tab'}
-              onClick={() => setTab('kontroll')}
-            >
-              Kontroll
-            </button>
-            <button
-              type="button"
-              role="tab"
               aria-selected={tab === 'hendelser'}
               className={tab === 'hendelser' ? 'tab active' : 'tab'}
               onClick={() => setTab('hendelser')}
@@ -121,9 +117,44 @@ export default function App() {
                 <span className="badge">{Math.min(events.length, 99)}</span>
               )}
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'kontroll'}
+              className={tab === 'kontroll' ? 'tab active' : 'tab'}
+              onClick={() => setTab('kontroll')}
+            >
+              Innstillinger
+            </button>
           </div>
 
-          {tab === 'kontroll' ? (
+          {tab === 'hendelser' ? (
+            <section className="panel events">
+              <p className="events-hint">
+                Skilt, bensinpriser og kontrollvarsler vises her når de
+                oppdages.
+              </p>
+              {events.length === 0 ? (
+                <p className="muted">Ingen deteksjoner ennå.</p>
+              ) : (
+                <ul>
+                  {events.map((ev) => (
+                    <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
+                      <span className="kind">{KIND_LABEL[ev.kind]}</span>
+                      <span className="msg">{ev.message}</span>
+                      <time>
+                        {new Date(ev.at).toLocaleTimeString('nb-NO', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ) : (
             <section className="panel">
               {error && <p className="error">{error}</p>}
               <div className="checks">
@@ -165,7 +196,7 @@ export default function App() {
                     checked={settings.alertPolice}
                     onChange={() => toggle('alertPolice')}
                   />
-                  Varsle politi
+                  Varsle kontroll (politi)
                 </label>
                 <label className="check">
                   <input
@@ -176,28 +207,6 @@ export default function App() {
                   Varsle vegvesen
                 </label>
               </div>
-            </section>
-          ) : (
-            <section className="panel events">
-              {events.length === 0 ? (
-                <p className="muted">Ingen deteksjoner ennå.</p>
-              ) : (
-                <ul>
-                  {events.map((ev) => (
-                    <li key={ev.id} className={ev.urgent ? 'urgent' : ''}>
-                      <span className="kind">{KIND_LABEL[ev.kind]}</span>
-                      <span className="msg">{ev.message}</span>
-                      <time>
-                        {new Date(ev.at).toLocaleTimeString('nb-NO', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
           )}
         </aside>
