@@ -1,21 +1,26 @@
 import { useRef, useState } from 'react'
-import {
-  formatRecordingDuration,
-} from '../recording/recordVideo'
+import { formatRecordingDuration } from '../recording/recordVideo'
 import { useRecordingLibrary } from '../hooks/useRecordingLibrary'
 import type { RecordingMeta } from '../recording/library'
 
 interface Props {
   libraryVersion: number
+  rollingHours: number
   onPlay: (source: { url: string; name: string; revokeUrl?: boolean }) => void
 }
 
-export function RecordingLibraryPanel({ libraryVersion, onPlay }: Props) {
+export function RecordingLibraryPanel({
+  libraryVersion,
+  rollingHours,
+  onPlay,
+}: Props) {
   const {
     items,
+    bufferStats,
     loading,
     error,
     remove,
+    lock,
     importFile,
     exportRecording,
     resolvePlaybackSource,
@@ -64,9 +69,13 @@ export function RecordingLibraryPanel({ libraryVersion, onPlay }: Props) {
   return (
     <section className="panel recordings">
       <p className="events-hint">
-        Opptak lagres lokalt på enheten. Spill dem av for å teste skilt- og
-        bensinprisgjenkjenning. Eksporter filer og legg dem i{' '}
-        <code>public/opptak/</code> for å dele med utvikling.
+        Rullende buffer ({rollingHours} t): eldste 1-minutts segmenter slettes
+        automatisk. Bruk <strong>Lås</strong> for å beholde et klipp.
+      </p>
+      <p className="events-hint">
+        Buffer: {formatRecordingDuration(bufferStats.durationMs)} / {rollingHours}
+        t · {bufferStats.segmentCount} segmenter ·{' '}
+        {formatBytes(bufferStats.sizeBytes)}
       </p>
 
       <div className="recordings-actions">
@@ -78,7 +87,11 @@ export function RecordingLibraryPanel({ libraryVersion, onPlay }: Props) {
         >
           Importer video
         </button>
-        <button type="button" className="drawer-close" onClick={() => void refresh()}>
+        <button
+          type="button"
+          className="drawer-close"
+          onClick={() => void refresh()}
+        >
           Oppdater
         </button>
         <input
@@ -108,7 +121,13 @@ export function RecordingLibraryPanel({ libraryVersion, onPlay }: Props) {
               <div className="recording-meta">
                 <strong className="recording-name">{item.name}</strong>
                 <span className="recording-sub">
-                  {item.bundled ? 'Eksempel · ' : ''}
+                  {item.bundled
+                    ? 'Eksempel · '
+                    : item.locked
+                      ? 'Låst · '
+                      : item.rolling
+                        ? 'Segment · '
+                        : ''}
                   {item.durationMs
                     ? `${formatRecordingDuration(item.durationMs)} · `
                     : ''}
@@ -147,6 +166,22 @@ export function RecordingLibraryPanel({ libraryVersion, onPlay }: Props) {
                 >
                   Eksporter
                 </button>
+                {item.rolling && !item.locked && !item.bundled && (
+                  <button
+                    type="button"
+                    className="rec-action"
+                    disabled={busyId === item.id}
+                    onClick={() =>
+                      void lock(item.id).catch((e) =>
+                        setLocalError(
+                          e instanceof Error ? e.message : 'Lås feilet.',
+                        ),
+                      )
+                    }
+                  >
+                    Lås
+                  </button>
+                )}
                 {!item.bundled && (
                   <button
                     type="button"

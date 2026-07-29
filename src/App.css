@@ -790,6 +790,40 @@ button.brand-mark--stop {
   border-top: 1px solid var(--line);
 }
 
+.settings-block--first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.rolling-hours {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.rolling-hour {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 80%, #000);
+  color: var(--text);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rolling-hour--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 28%, #0c1118);
+  color: #fff;
+}
+
 .settings-title {
   margin: 0 0 0.35rem;
   font-size: 0.95rem;

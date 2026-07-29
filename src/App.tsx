@@ -5,7 +5,9 @@ import { usePwaInstall } from './hooks/usePwaInstall'
 import { RecordingLibraryPanel } from './recording/RecordingLibraryPanel'
 import { illustrationFromEvent } from './signs/illustration'
 import { SignIllustrationView } from './signs/SignIllustrationView'
-import type { AlertKind, DashcamSettings } from './types'
+import type { AlertKind, DashcamSettings, RollingHours } from './types'
+
+const ROLLING_HOURS: RollingHours[] = [1, 2, 3, 5]
 import './App.css'
 
 const KIND_LABEL: Record<AlertKind, string> = {
@@ -38,6 +40,8 @@ export default function App() {
     recording,
     recordingSupported,
     recordingDurationLabel,
+    recordingBufferLabel,
+    recordingBufferStats,
     recordError,
     lastSave,
     toggleRecording,
@@ -58,6 +62,10 @@ export default function App() {
 
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
+  }
+
+  const setRollingHours = (hours: RollingHours) => {
+    setSettings((s) => ({ ...s, rollingHours: hours }))
   }
 
   const latest = events[0]
@@ -263,8 +271,8 @@ export default function App() {
                       aria-pressed={recording}
                       aria-label={
                         recording
-                          ? `Stopp opptak, ${recordingDurationLabel}`
-                          : 'Start videoopptak'
+                          ? `Stopp rullende opptak, ${recordingDurationLabel}`
+                          : 'Start rullende dashcam-opptak'
                       }
                       onClick={toggleRecording}
                     >
@@ -278,15 +286,19 @@ export default function App() {
                       Opptak ikke støttet
                     </span>
                   )}
-                  {(recordError || lastSave) && (
-                    <span
-                      className={`record-status${recordError ? ' record-status--err' : ''}`}
-                    >
-                      {recordError
-                        ? recordError
-                        : 'Lagret i Opptak'}
-                    </span>
-                  )}
+                  <span
+                    className={`record-status${recordError ? ' record-status--err' : ''}`}
+                  >
+                    {recordError
+                      ? recordError
+                      : recording
+                        ? `Loop ${recordingBufferLabel}`
+                        : lastSave
+                          ? `Buffer ${recordingBufferLabel}`
+                          : recordingBufferStats.segmentCount > 0
+                            ? `Buffer ${recordingBufferLabel}`
+                            : `${settings.rollingHours}t rullende`}
+                  </span>
                 </div>
               )}
 
@@ -406,11 +418,39 @@ export default function App() {
           ) : tab === 'opptak' ? (
             <RecordingLibraryPanel
               libraryVersion={libraryVersion}
+              rollingHours={settings.rollingHours}
               onPlay={handlePlayRecording}
             />
           ) : (
             <section className="panel">
               {error && <p className="error">{error}</p>}
+              <div className="settings-block settings-block--first">
+                <h3 className="settings-title">Rullende opptak</h3>
+                <p className="events-hint">
+                  Opptak deles i 1-minutts segmenter. Eldste slettes automatisk
+                  når bufferen er full. Ca. 0,7 GB per time.
+                </p>
+                <div className="rolling-hours" role="group" aria-label="Bufferlengde">
+                  {ROLLING_HOURS.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      className={`rolling-hour${settings.rollingHours === h ? ' rolling-hour--active' : ''}`}
+                      aria-pressed={settings.rollingHours === h}
+                      onClick={() => setRollingHours(h)}
+                    >
+                      {h} t
+                    </button>
+                  ))}
+                </div>
+                <p className="events-hint">
+                  Buffer nå: {recordingBufferLabel}
+                  {recordingBufferStats.segmentCount > 0
+                    ? ` · ${recordingBufferStats.segmentCount} segmenter`
+                    : ''}
+                </p>
+              </div>
+
               <div className="checks">
                 <label className="check">
                   <input

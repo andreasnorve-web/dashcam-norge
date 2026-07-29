@@ -33,6 +33,8 @@ export interface DashcamEvent {
   imageDataUrl?: string
 }
 
+export type RollingHours = 1 | 2 | 3 | 5
+
 export interface DashcamSettings {
   speakSigns: boolean
   speakFuel: boolean
@@ -42,4 +44,6 @@ export interface DashcamSettings {
   showLanes: boolean
   detectionIntervalMs: number
   ocrIntervalMs: number
+  /** Rullende buffer: behold siste N timer */
+  rollingHours: RollingHours
 }

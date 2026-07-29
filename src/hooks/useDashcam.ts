@@ -16,6 +16,10 @@ import {
   scoreByRoadPosition,
 } from '../detection/roadRoi'
 import { findSignRegions } from '../detection/signDetector'
+import {
+  pruneRollingBuffer,
+  rollingHoursToMs,
+} from '../recording/library'
 import { useVideoRecorder } from './useVideoRecorder'
 import type {
   DashcamEvent,
@@ -23,6 +27,8 @@ import type {
   DetectionBox,
   LaneLines,
 } from '../types'
+
+const SETTINGS_KEY = 'dashcam-settings'
 
 const DEFAULT_SETTINGS: DashcamSettings = {
   speakSigns: true,
@@ -33,6 +39,23 @@ const DEFAULT_SETTINGS: DashcamSettings = {
   showLanes: true,
   detectionIntervalMs: 450,
   ocrIntervalMs: 1800,
+  rollingHours: 1,
+}
+
+function loadSettings(): DashcamSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (!raw) return DEFAULT_SETTINGS
+    const parsed = JSON.parse(raw) as Partial<DashcamSettings>
+    const hours = parsed.rollingHours
+    const rollingHours =
+      hours === 1 || hours === 2 || hours === 3 || hours === 5
+        ? hours
+        : DEFAULT_SETTINGS.rollingHours
+    return { ...DEFAULT_SETTINGS, ...parsed, rollingHours }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
 }
 
 export function useDashcam() {
@@ -57,7 +80,7 @@ export function useDashcam() {
   const [events, setEvents] = useState<DashcamEvent[]>([])
   const [signHud, setSignHud] = useState<DashcamEvent | null>(null)
   const [fps, setFps] = useState(0)
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState(loadSettings)
   const [iosStandalone] = useState(() =>
     typeof window !== 'undefined' ? isIosStandalone() : false,
   )
@@ -80,6 +103,10 @@ export function useDashcam() {
   const signHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const getStream = useCallback(() => streamRef.current, [])
+  const getRollingHours = useCallback(
+    () => settingsRef.current.rollingHours,
+    [],
+  )
   const onLibrarySaved = useCallback(() => {
     setLibraryVersion((v) => v + 1)
   }, [])
@@ -87,26 +114,36 @@ export function useDashcam() {
     recording,
     supported: recordingSupported,
     durationLabel: recordingDurationLabel,
+    bufferLabel: recordingBufferLabel,
+    bufferStats: recordingBufferStats,
     recordError,
     lastSave,
     toggleRecording,
     stopRecording,
-    saveAndClear,
-  } = useVideoRecorder(getStream, onLibrarySaved)
+  } = useVideoRecorder(getStream, onLibrarySaved, getRollingHours)
 
   const recordingRef = useRef(false)
   const stopRecordingRef = useRef(stopRecording)
-  const saveAndClearRef = useRef(saveAndClear)
 
   useEffect(() => {
     recordingRef.current = recording
     stopRecordingRef.current = stopRecording
-    saveAndClearRef.current = saveAndClear
-  }, [recording, stopRecording, saveAndClear])
+  }, [recording, stopRecording])
 
   useEffect(() => {
     settingsRef.current = settings
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    } catch {
+      /* ignore */
+    }
   }, [settings])
+
+  useEffect(() => {
+    void pruneRollingBuffer(rollingHoursToMs(settings.rollingHours)).then(() => {
+      setLibraryVersion((v) => v + 1)
+    })
+  }, [settings.rollingHours])
 
   useEffect(() => {
     readyRef.current = ready
@@ -581,8 +618,7 @@ export function useDashcam() {
       setRunning(true)
       try {
         if (recordingRef.current) {
-          const blob = await stopRecordingRef.current()
-          await saveAndClearRef.current(blob)
+          await stopRecordingRef.current()
         }
         tearDownMedia()
         if (opts.revokeUrl) playbackUrlRef.current = opts.url
@@ -653,8 +689,7 @@ export function useDashcam() {
   const stop = useCallback(() => {
     const finish = async () => {
       if (recordingRef.current) {
-        const blob = await stopRecordingRef.current()
-        await saveAndClearRef.current(blob)
+        await stopRecordingRef.current()
       }
       tearDownMedia()
       setRunning(false)
@@ -699,6 +734,8 @@ export function useDashcam() {
     recording,
     recordingSupported,
     recordingDurationLabel,
+    recordingBufferLabel,
+    recordingBufferStats,
     recordError,
     lastSave,
     toggleRecording,

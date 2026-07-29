@@ -4,15 +4,23 @@ import {
   deleteRecording,
   formatBytes,
   getRecording,
+  getRollingBufferStats,
   listRecordings,
   loadBundledManifest,
+  lockRecording,
   saveRecording,
   type RecordingMeta,
+  type RollingBufferStats,
 } from '../recording/library'
 import { downloadBlob } from '../recording/recordVideo'
 
 export function useRecordingLibrary(refreshKey = 0) {
   const [items, setItems] = useState<RecordingMeta[]>([])
+  const [bufferStats, setBufferStats] = useState<RollingBufferStats>({
+    segmentCount: 0,
+    durationMs: 0,
+    sizeBytes: 0,
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,17 +28,18 @@ export function useRecordingLibrary(refreshKey = 0) {
     setLoading(true)
     setError(null)
     try {
-      const [local, bundled] = await Promise.all([
+      const [local, bundled, stats] = await Promise.all([
         listRecordings(),
         loadBundledManifest(),
+        getRollingBufferStats(),
       ])
       const bundledMeta = bundled.map(bundledToMeta)
-      // Unngå duplikat-id hvis noen har importert samme fil
       const localIds = new Set(local.map((r) => r.id))
       setItems([
         ...bundledMeta.filter((b) => !localIds.has(b.id)),
         ...local,
       ])
+      setBufferStats(stats)
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Kunne ikke hente opptaksbibliotek.',
@@ -62,6 +71,15 @@ export function useRecordingLibrary(refreshKey = 0) {
       })
       await refresh()
       return meta
+    },
+    [refresh],
+  )
+
+  const lock = useCallback(
+    async (id: string) => {
+      if (id.startsWith('bundled:')) return
+      await lockRecording(id)
+      await refresh()
     },
     [refresh],
   )
@@ -109,10 +127,12 @@ export function useRecordingLibrary(refreshKey = 0) {
 
   return {
     items,
+    bufferStats,
     loading,
     error,
     refresh,
     remove,
+    lock,
     importFile,
     exportRecording,
     resolvePlaybackSource,
