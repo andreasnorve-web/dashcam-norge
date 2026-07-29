@@ -784,6 +784,28 @@ button.brand-mark--stop {
   accent-color: var(--accent);
 }
 
+.settings-block {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.settings-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.pwa-actions {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+}
+
+.pwa-btn {
+  justify-self: start;
+}
+
 .error {
   color: #ff8d8d;
   font-size: 0.85rem;

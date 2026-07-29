@@ -4,8 +4,15 @@ import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.tsx'
 
-// selfDestroying SW: avregistrerer seg selv hos alle klienter.
-registerSW({ immediate: true })
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return
+    setInterval(() => {
+      void registration.update()
+    }, 60 * 60 * 1000)
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

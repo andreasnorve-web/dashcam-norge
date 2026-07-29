@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
 import { useGpsSpeed } from './hooks/useGpsSpeed'
+import { usePwaInstall } from './hooks/usePwaInstall'
 import { RecordingLibraryPanel } from './recording/RecordingLibraryPanel'
 import { illustrationFromEvent } from './signs/illustration'
 import { SignIllustrationView } from './signs/SignIllustrationView'
@@ -53,6 +54,7 @@ export default function App() {
   )
   const { speedKmh } = useGpsSpeed(running && sourceMode === 'camera')
   const isPlayback = sourceMode === 'playback'
+  const pwa = usePwaInstall()
 
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
@@ -458,6 +460,60 @@ export default function App() {
                   />
                   Varsle vegvesen
                 </label>
+              </div>
+
+              <div className="settings-block">
+                <h3 className="settings-title">PWA / hjemskjerm</h3>
+                <p className="events-hint">
+                  Status: <strong>{pwa.modeLabel}</strong>
+                  {pwa.preferPwa
+                    ? ' · Installasjon aktivert'
+                    : ' · Kun nettleser'}
+                </p>
+                <div className="checks">
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={pwa.preferPwa}
+                      onChange={() => pwa.setPreferPwa(!pwa.preferPwa)}
+                    />
+                    Tillat installasjon som app (PWA)
+                  </label>
+                </div>
+                {pwa.preferPwa && (
+                  <div className="pwa-actions">
+                    {pwa.canInstall && (
+                      <button
+                        type="button"
+                        className="primary pwa-btn"
+                        onClick={() => void pwa.install()}
+                      >
+                        Installer Dashcam
+                      </button>
+                    )}
+                    {pwa.ios && !pwa.installed && (
+                      <p className="events-hint">
+                        På iPhone: trykk Del → «Legg til på Hjem-skjerm». Åpner
+                        som nettleser-fane (bedre for kamera).
+                      </p>
+                    )}
+                    {!pwa.canInstall && !pwa.ios && !pwa.installed && (
+                      <p className="events-hint">
+                        Bruk nettleserens meny («Installer app» / «Legg til på
+                        startskjermen») når valget dukker opp.
+                      </p>
+                    )}
+                    {pwa.installed && (
+                      <button
+                        type="button"
+                        className="drawer-close pwa-btn"
+                        onClick={pwa.openInBrowser}
+                      >
+                        Åpne i nettleser
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </section>
           )}
