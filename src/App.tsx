@@ -32,6 +32,12 @@ export default function App() {
     stop,
     iosStandalone,
     pwaStandalone,
+    recording,
+    recordingSupported,
+    recordingDurationLabel,
+    recordError,
+    lastSave,
+    toggleRecording,
   } = useDashcam()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -187,6 +193,40 @@ export default function App() {
                     <span className="msg">{latest.message}</span>
                   </div>
                 ) : null}
+              </div>
+
+              <div className="hud-record">
+                {recordingSupported ? (
+                  <button
+                    type="button"
+                    className={`record-btn${recording ? ' record-btn--live' : ''}`}
+                    aria-pressed={recording}
+                    aria-label={
+                      recording
+                        ? `Stopp opptak, ${recordingDurationLabel}`
+                        : 'Start videoopptak'
+                    }
+                    onClick={toggleRecording}
+                  >
+                    <span className="record-dot" aria-hidden="true" />
+                    <span className="record-label">
+                      {recording ? recordingDurationLabel : 'Opptak'}
+                    </span>
+                  </button>
+                ) : (
+                  <span className="record-unsupported">Opptak ikke støttet</span>
+                )}
+                {(recordError || lastSave) && (
+                  <span
+                    className={`record-status${recordError ? ' record-status--err' : ''}`}
+                  >
+                    {recordError
+                      ? recordError
+                      : lastSave === 'shared'
+                        ? 'Opptak delt'
+                        : 'Opptak lagret'}
+                  </span>
+                )}
               </div>
 
               <div className="hud-speed" aria-live="polite">

@@ -15,6 +15,7 @@ import {
   scoreByRoadPosition,
 } from '../detection/roadRoi'
 import { findSignRegions } from '../detection/signDetector'
+import { useVideoRecorder } from './useVideoRecorder'
 import type {
   DashcamEvent,
   DashcamSettings,
@@ -69,6 +70,28 @@ export function useDashcam() {
       : false,
   )
   const signHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const getStream = useCallback(() => streamRef.current, [])
+  const {
+    recording,
+    supported: recordingSupported,
+    durationLabel: recordingDurationLabel,
+    recordError,
+    lastSave,
+    toggleRecording,
+    stopRecording,
+    saveAndClear,
+  } = useVideoRecorder(getStream)
+
+  const recordingRef = useRef(false)
+  const stopRecordingRef = useRef(stopRecording)
+  const saveAndClearRef = useRef(saveAndClear)
+
+  useEffect(() => {
+    recordingRef.current = recording
+    stopRecordingRef.current = stopRecording
+    saveAndClearRef.current = saveAndClear
+  }, [recording, stopRecording, saveAndClear])
 
   useEffect(() => {
     settingsRef.current = settings
@@ -500,18 +523,25 @@ export function useDashcam() {
   )
 
   const stop = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
-    boxesRef.current = []
-    lanesRef.current = { left: null, right: null }
-    setRunning(false)
-    setSignHud(null)
-    if (signHudTimer.current) {
-      clearTimeout(signHudTimer.current)
-      signHudTimer.current = null
+    const finish = async () => {
+      if (recordingRef.current) {
+        const blob = await stopRecordingRef.current()
+        await saveAndClearRef.current(blob)
+      }
+      cancelAnimationFrame(rafRef.current)
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+      if (videoRef.current) videoRef.current.srcObject = null
+      boxesRef.current = []
+      lanesRef.current = { left: null, right: null }
+      setRunning(false)
+      setSignHud(null)
+      if (signHudTimer.current) {
+        clearTimeout(signHudTimer.current)
+        signHudTimer.current = null
+      }
     }
+    void finish()
   }, [])
 
   useEffect(() => {
@@ -538,5 +568,11 @@ export function useDashcam() {
     stop,
     iosStandalone,
     pwaStandalone,
+    recording,
+    recordingSupported,
+    recordingDurationLabel,
+    recordError,
+    lastSave,
+    toggleRecording,
   }
 }

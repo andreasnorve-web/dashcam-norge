@@ -10,6 +10,7 @@ Mobilvennlig dashbordkamera i nettleseren. Gjenkjenner veibaner, trafikkskilt, i
 - **Fotgjengere** – COCO-SSD (TensorFlow.js), lydvarsel + opplesing
 - **Politi / vegvesen** – OCR for `POLITI`, `VEGVESEN`, `STATENS VEGVESEN` + lydvarsel
 - Alt kjører **lokalt i telefonen** – video streames ikke til server
+- **Videoopptak** – ta opp kjøreturen med Opptak-knappen; lagres/deles lokalt
 
 ## Krav
 
@@ -38,7 +39,7 @@ npm run dev
 - Dette er **ikke** en sertifisert førerstøtte. Brukes på eget ansvar.
 - Skilt-/prisfunksjon er heuristikk + OCR; treffsikkerhet varierer med lys, vinkel og bevegelse.
 - Politi/vegvesen baseres på tekst i bildet, ikke spesialtrent modell.
-- Neste steg: finjustert skiltmodell, bedre politibil-gjenkjenning, valgfri opptak.
+- Neste steg: finjustert skiltmodell, bedre politibil-gjenkjenning.
 
 ## Stack
 
