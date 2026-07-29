@@ -58,6 +58,7 @@ export async function openDashcamStream(): Promise<MediaStream> {
   }
 
   await preferBackCamera(stream)
+  await ensureMicrophone(stream)
   return stream
 }
 
@@ -65,6 +66,30 @@ export async function openDashcamStream(): Promise<MediaStream> {
 export async function ensureBackCamera(stream: MediaStream): Promise<MediaStream> {
   await preferBackCamera(stream)
   return stream
+}
+
+/** Legg til mikrofon på streamen (for opptak med lyd). Feiler stille hvis nekta. */
+export async function ensureMicrophone(stream: MediaStream): Promise<boolean> {
+  if (stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+    return true
+  }
+  if (!navigator.mediaDevices?.getUserMedia) return false
+  try {
+    const mic = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    })
+    for (const track of mic.getAudioTracks()) {
+      stream.addTrack(track)
+    }
+    return stream.getAudioTracks().some((t) => t.readyState === 'live')
+  } catch {
+    return false
+  }
 }
 
 function mapCameraError(lastErr: unknown): Error {

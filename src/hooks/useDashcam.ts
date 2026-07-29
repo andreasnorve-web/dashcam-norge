@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   attachStreamToVideo,
   ensureBackCamera,
+  ensureMicrophone,
   isIosStandalone,
   openDashcamStream,
 } from '../camera/openCamera'
@@ -529,12 +530,16 @@ export function useDashcam() {
         if (preflight) {
           try {
             stream = await preflight
-            if (stream) stream = await ensureBackCamera(stream)
+            if (stream) {
+              stream = await ensureBackCamera(stream)
+              await ensureMicrophone(stream)
+            }
           } catch {
             stream = null
           }
         }
         if (!stream) stream = await openDashcamStream()
+        else await ensureMicrophone(stream)
 
         streamRef.current = stream
         const video = videoRef.current
@@ -587,11 +592,13 @@ export function useDashcam() {
 
         video.setAttribute('playsinline', 'true')
         video.setAttribute('webkit-playsinline', 'true')
-        video.muted = true
-        video.defaultMuted = true
+        // Avspilling med lyd (opptak); live-kamera holdes muted for å unngå feedback.
+        video.muted = false
+        video.defaultMuted = false
         video.playsInline = true
         video.loop = true
         video.controls = false
+        video.volume = 1
         video.srcObject = null
         video.src = opts.url
 

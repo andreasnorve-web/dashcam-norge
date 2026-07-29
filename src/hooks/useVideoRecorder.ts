@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ensureMicrophone } from '../camera/openCamera'
 import {
   formatRecordingDuration,
   isRecordingSupported,
@@ -96,7 +97,7 @@ export function useVideoRecorder(
     }
   }, [])
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     setRecordError(null)
     setLastSave(null)
 
@@ -115,6 +116,9 @@ export function useVideoRecorder(
       return
     }
 
+    // Be om mikrofon hvis den mangler — videoopptak fortsetter uten lyd ved nei.
+    await ensureMicrophone(stream)
+
     const videoTracks = stream
       .getVideoTracks()
       .filter((t) => t.readyState === 'live')
@@ -123,26 +127,40 @@ export function useVideoRecorder(
       return
     }
 
-    const recordStream = new MediaStream(videoTracks)
+    const audioTracks = stream
+      .getAudioTracks()
+      .filter((t) => t.readyState === 'live')
+    const recordStream = new MediaStream([...videoTracks, ...audioTracks])
     const mime = pickRecorderMimeType()
     mimeRef.current = mime ?? 'video/webm'
     chunksRef.current = []
 
+    const recorderOpts: MediaRecorderOptions = {
+      videoBitsPerSecond: 2_500_000,
+      audioBitsPerSecond: 128_000,
+    }
+    if (mime) recorderOpts.mimeType = mime
+
     let recorder: MediaRecorder
     try {
-      recorder = mime
-        ? new MediaRecorder(recordStream, {
-            mimeType: mime,
-            videoBitsPerSecond: 2_500_000,
-          })
-        : new MediaRecorder(recordStream, { videoBitsPerSecond: 2_500_000 })
+      recorder = new MediaRecorder(recordStream, recorderOpts)
     } catch (e) {
-      setRecordError(
-        e instanceof Error
-          ? `Kunne ikke starte opptak: ${e.message}`
-          : 'Kunne ikke starte opptak.',
-      )
-      return
+      // Noen nettlesere feiler med audioBits når det mangler lydspor
+      try {
+        recorder = mime
+          ? new MediaRecorder(recordStream, {
+              mimeType: mime,
+              videoBitsPerSecond: 2_500_000,
+            })
+          : new MediaRecorder(recordStream, { videoBitsPerSecond: 2_500_000 })
+      } catch (e2) {
+        setRecordError(
+          e2 instanceof Error
+            ? `Kunne ikke starte opptak: ${e2.message}`
+            : 'Kunne ikke starte opptak.',
+        )
+        return
+      }
     }
 
     mimeRef.current = recorder.mimeType || mimeRef.current
@@ -204,7 +222,7 @@ export function useVideoRecorder(
 
   const toggleRecording = useCallback(() => {
     if (recording) void stopAndSave()
-    else startRecording()
+    else void startRecording()
   }, [recording, startRecording, stopAndSave])
 
   useEffect(() => {
