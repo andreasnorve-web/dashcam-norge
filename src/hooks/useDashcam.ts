@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   attachStreamToVideo,
+  ensureBackCamera,
   isIosStandalone,
   openDashcamStream,
 } from '../camera/openCamera'
@@ -463,6 +464,7 @@ export function useDashcam() {
         if (preflight) {
           try {
             stream = await preflight
+            if (stream) stream = await ensureBackCamera(stream)
           } catch {
             stream = null
           }

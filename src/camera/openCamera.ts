@@ -33,11 +33,12 @@ export async function openDashcamStream(): Promise<MediaStream> {
     )
   }
 
-  // Enklest først. FacingMode/deviceId-bytte feiler ofte i PWA.
+  // Bakkamera først (dashcam). `video: true` alene gir ofte selfie-kamera.
   const attempts: MediaStreamConstraints[] = [
-    { audio: false, video: true },
+    { audio: false, video: { facingMode: { exact: 'environment' } } },
     { audio: false, video: { facingMode: { ideal: 'environment' } } },
     { audio: false, video: { facingMode: 'environment' } },
+    { audio: false, video: true },
   ]
 
   let lastErr: unknown = null
@@ -56,11 +57,13 @@ export async function openDashcamStream(): Promise<MediaStream> {
     throw mapCameraError(lastErr)
   }
 
-  // Unngå andre getUserMedia-kall i PWA — det kan drepe første stream.
-  if (!isStandaloneDisplay() && !isIosDevice()) {
-    await preferBackCamera(stream)
-  }
+  await preferBackCamera(stream)
+  return stream
+}
 
+/** Bytt til bakkamera hvis streamen peker mot brukeren. */
+export async function ensureBackCamera(stream: MediaStream): Promise<MediaStream> {
+  await preferBackCamera(stream)
   return stream
 }
 
@@ -118,17 +121,54 @@ function resolveGetUserMedia():
 
 async function preferBackCamera(stream: MediaStream) {
   try {
-    if (!navigator.mediaDevices?.enumerateDevices) return
-    const devices = await navigator.mediaDevices.enumerateDevices()
-    const back = devices.find(
-      (d) =>
-        d.kind === 'videoinput' &&
-        /back|rear|environment|bak|posterior/i.test(d.label),
-    )
-    if (!back?.deviceId) return
-
     const current = stream.getVideoTracks()[0]
     if (!current) return
+
+    const facing = current.getSettings().facingMode
+    if (facing === 'environment') return
+
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      // Prøv å bytte via facingMode hvis device-liste mangler labels
+      if (facing === 'user' || !facing) {
+        try {
+          const next = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { exact: 'environment' } },
+          })
+          current.stop()
+          stream.removeTrack(current)
+          const track = next.getVideoTracks()[0]
+          if (track) stream.addTrack(track)
+        } catch {
+          /* behold */
+        }
+      }
+      return
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const videos = devices.filter((d) => d.kind === 'videoinput')
+    const back =
+      videos.find((d) =>
+        /back|rear|environment|bak|posterior|world/i.test(d.label),
+      ) ??
+      // Ofte er bakkamera siste videoinput på mobil
+      (videos.length > 1 ? videos[videos.length - 1] : undefined)
+
+    if (!back?.deviceId) {
+      if (facing === 'user') {
+        const next = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: 'environment' } },
+        })
+        current.stop()
+        stream.removeTrack(current)
+        const track = next.getVideoTracks()[0]
+        if (track) stream.addTrack(track)
+      }
+      return
+    }
+
     if (current.getSettings().deviceId === back.deviceId) return
 
     const next = await navigator.mediaDevices.getUserMedia({

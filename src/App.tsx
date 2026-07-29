@@ -58,11 +58,11 @@ export default function App() {
 
   const handleStart = () => {
     setDrawerOpen(false)
-    // Start getUserMedia i samme bruker-gest (kritisk for Safari/PWA).
+    // Start getUserMedia i samme bruker-gest — bakkamera (dashcam).
     const preflight =
       navigator.mediaDevices?.getUserMedia?.({
         audio: false,
-        video: true,
+        video: { facingMode: { ideal: 'environment' } },
       }) ?? null
     void start(preflight)
   }
