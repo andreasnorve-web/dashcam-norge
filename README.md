@@ -10,7 +10,9 @@ Mobilvennlig dashbordkamera i nettleseren. Gjenkjenner veibaner, trafikkskilt, i
 - **Fotgjengere** – COCO-SSD (TensorFlow.js), lydvarsel + opplesing
 - **Politi / vegvesen** – OCR for `POLITI`, `VEGVESEN`, `STATENS VEGVESEN` + lydvarsel
 - Alt kjører **lokalt i telefonen** – video streames ikke til server
-- **Videoopptak** – ta opp kjøreturen med Opptak-knappen; lagres/deles lokalt
+- **Videoopptak** – ta opp kjøreturen; lagres i lokalt bibliotek (IndexedDB)
+- **Avspilling** – spill opptak på nytt gjennom samme skilt-/bensin-deteksjon
+- **Deling** – eksporter filer til `public/opptak/` for utvikling og AI-gjennomgang
 
 ## Krav
 
@@ -26,6 +28,14 @@ npm run dev
 ```
 
 Åpne URL-en på telefonen via samme nettverk, eller bruk `npm run build && npm run preview`.
+
+## Opptak og avspilling
+
+1. **Start kamera** → trykk **Opptak** under kjøring.
+2. Stopp opptak → filen lagres under **Meny → Opptak**.
+3. Trykk **Spill av** for å kjøre deteksjon på opptaket (nyttig for skilt/bensin).
+4. **Eksporter** filen og legg den i `public/opptak/` + oppdater `manifest.json`
+   for å dele med utvikling / AI (se `public/opptak/README.md`).
 
 ## Railway
 

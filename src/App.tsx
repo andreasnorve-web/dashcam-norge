@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDashcam } from './hooks/useDashcam'
 import { useGpsSpeed } from './hooks/useGpsSpeed'
+import { RecordingLibraryPanel } from './recording/RecordingLibraryPanel'
 import { illustrationFromEvent } from './signs/illustration'
 import { SignIllustrationView } from './signs/SignIllustrationView'
 import type { AlertKind, DashcamSettings } from './types'
@@ -29,6 +30,7 @@ export default function App() {
     settings,
     setSettings,
     start,
+    startPlayback,
     stop,
     iosStandalone,
     pwaStandalone,
@@ -38,11 +40,19 @@ export default function App() {
     recordError,
     lastSave,
     toggleRecording,
+    sourceMode,
+    playbackName,
+    playbackPaused,
+    togglePlaybackPause,
+    libraryVersion,
   } = useDashcam()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [tab, setTab] = useState<'kontroll' | 'hendelser'>('hendelser')
-  const { speedKmh } = useGpsSpeed(running)
+  const [tab, setTab] = useState<'kontroll' | 'hendelser' | 'opptak'>(
+    'hendelser',
+  )
+  const { speedKmh } = useGpsSpeed(running && sourceMode === 'camera')
+  const isPlayback = sourceMode === 'playback'
 
   const toggle = <K extends keyof DashcamSettings>(key: K) => {
     setSettings((s) => ({ ...s, [key]: !s[key] }))
@@ -64,13 +74,21 @@ export default function App() {
 
   const handleStart = () => {
     setDrawerOpen(false)
-    // Start getUserMedia i samme bruker-gest — bakkamera (dashcam).
     const preflight =
       navigator.mediaDevices?.getUserMedia?.({
         audio: false,
         video: { facingMode: { ideal: 'environment' } },
       }) ?? null
     void start(preflight)
+  }
+
+  const handlePlayRecording = (source: {
+    url: string
+    name: string
+    revokeUrl?: boolean
+  }) => {
+    setDrawerOpen(false)
+    void startPlayback(source)
   }
 
   return (
@@ -80,7 +98,13 @@ export default function App() {
           <button
             type="button"
             className={`brand-mark${running ? ' brand-mark--stop' : ' brand-mark--start'}`}
-            aria-label={running ? 'Stopp kamera' : 'Start kamera'}
+            aria-label={
+              running
+                ? isPlayback
+                  ? 'Stopp avspilling'
+                  : 'Stopp kamera'
+                : 'Start kamera'
+            }
             onClick={() => {
               if (running) stop()
               else handleStart()
@@ -103,7 +127,7 @@ export default function App() {
           {!running && (
             <div className="brand-text">
               <h1>Dashcam Norge</h1>
-              <p>Felt · skilt · bensin · varsler</p>
+              <p>Felt · skilt · bensin · opptak</p>
             </div>
           )}
         </div>
@@ -152,17 +176,30 @@ export default function App() {
               {!(iosStandalone || pwaStandalone) && (
                 <>
                   <p>
-                    Trykk <strong>Start</strong> for fullskjerm-dashbord. Bruk{' '}
-                    <strong>Meny</strong> for hendelser og innstillinger.
+                    Trykk <strong>Start</strong> for live dashbord, eller åpne{' '}
+                    <strong>Meny → Opptak</strong> for å spille av tidligere
+                    kjøreturer.
                   </p>
                   {error && <p className="error idle-error">{error}</p>}
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={handleStart}
-                  >
-                    Start kamera
-                  </button>
+                  <div className="idle-actions">
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleStart}
+                    >
+                      Start kamera
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setTab('opptak')
+                        setDrawerOpen(true)
+                      }}
+                    >
+                      Mine opptak
+                    </button>
+                  </div>
                 </>
               )}
               {(iosStandalone || pwaStandalone) && error && (
@@ -195,45 +232,78 @@ export default function App() {
                 ) : null}
               </div>
 
-              <div className="hud-record">
-                {recordingSupported ? (
+              {isPlayback ? (
+                <div className="hud-record">
                   <button
                     type="button"
-                    className={`record-btn${recording ? ' record-btn--live' : ''}`}
-                    aria-pressed={recording}
+                    className={`record-btn record-btn--playback${playbackPaused ? '' : ' record-btn--live'}`}
+                    aria-pressed={!playbackPaused}
                     aria-label={
-                      recording
-                        ? `Stopp opptak, ${recordingDurationLabel}`
-                        : 'Start videoopptak'
+                      playbackPaused ? 'Fortsett avspilling' : 'Pause avspilling'
                     }
-                    onClick={toggleRecording}
+                    onClick={togglePlaybackPause}
                   >
                     <span className="record-dot" aria-hidden="true" />
                     <span className="record-label">
-                      {recording ? recordingDurationLabel : 'Opptak'}
+                      {playbackPaused ? 'Pause' : 'Avspilling'}
                     </span>
                   </button>
-                ) : (
-                  <span className="record-unsupported">Opptak ikke støttet</span>
-                )}
-                {(recordError || lastSave) && (
-                  <span
-                    className={`record-status${recordError ? ' record-status--err' : ''}`}
-                  >
-                    {recordError
-                      ? recordError
-                      : lastSave === 'shared'
-                        ? 'Opptak delt'
-                        : 'Opptak lagret'}
-                  </span>
-                )}
-              </div>
+                  {playbackName && (
+                    <span className="record-status">{playbackName}</span>
+                  )}
+                </div>
+              ) : (
+                <div className="hud-record">
+                  {recordingSupported ? (
+                    <button
+                      type="button"
+                      className={`record-btn${recording ? ' record-btn--live' : ''}`}
+                      aria-pressed={recording}
+                      aria-label={
+                        recording
+                          ? `Stopp opptak, ${recordingDurationLabel}`
+                          : 'Start videoopptak'
+                      }
+                      onClick={toggleRecording}
+                    >
+                      <span className="record-dot" aria-hidden="true" />
+                      <span className="record-label">
+                        {recording ? recordingDurationLabel : 'Opptak'}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="record-unsupported">
+                      Opptak ikke støttet
+                    </span>
+                  )}
+                  {(recordError || lastSave) && (
+                    <span
+                      className={`record-status${recordError ? ' record-status--err' : ''}`}
+                    >
+                      {recordError
+                        ? recordError
+                        : 'Lagret i Opptak'}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="hud-speed" aria-live="polite">
-                <span className="hud-speed-value">
-                  {speedKmh == null ? '—' : speedKmh}
-                </span>
-                <span className="hud-speed-unit">km/t</span>
+                {isPlayback ? (
+                  <>
+                    <span className="hud-speed-value hud-speed-value--sm">
+                      REP
+                    </span>
+                    <span className="hud-speed-unit">avspilling</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hud-speed-value">
+                      {speedKmh == null ? '—' : speedKmh}
+                    </span>
+                    <span className="hud-speed-unit">km/t</span>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -254,7 +324,7 @@ export default function App() {
           aria-hidden={!drawerOpen}
         >
           <div className="drawer-head">
-            <div className="tabs" role="tablist">
+            <div className="tabs tabs--3" role="tablist">
               <button
                 type="button"
                 role="tab"
@@ -266,6 +336,15 @@ export default function App() {
                 {events.length > 0 && (
                   <span className="badge">{Math.min(events.length, 99)}</span>
                 )}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'opptak'}
+                className={tab === 'opptak' ? 'tab active' : 'tab'}
+                onClick={() => setTab('opptak')}
+              >
+                Opptak
               </button>
               <button
                 type="button"
@@ -322,6 +401,11 @@ export default function App() {
                 </ul>
               )}
             </section>
+          ) : tab === 'opptak' ? (
+            <RecordingLibraryPanel
+              libraryVersion={libraryVersion}
+              onPlay={handlePlayRecording}
+            />
           ) : (
             <section className="panel">
               {error && <p className="error">{error}</p>}
@@ -382,7 +466,8 @@ export default function App() {
 
       {!running && (
         <footer className="foot">
-          Kjører lokalt i nettleseren — kamera sendes ikke til server.
+          Kjører lokalt i nettleseren — kamera og opptak sendes ikke til
+          server.
         </footer>
       )}
     </div>

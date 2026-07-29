@@ -4,18 +4,27 @@ import {
   isRecordingSupported,
   makeRecordingFilename,
   pickRecorderMimeType,
-  saveRecordingBlob,
 } from '../recording/recordVideo'
+import { saveRecording, type RecordingMeta } from '../recording/library'
 
-export type RecordingSaveResult = 'shared' | 'downloaded' | null
+export type RecordingSaveResult = 'library' | null
 
-export function useVideoRecorder(getStream: () => MediaStream | null) {
+export function useVideoRecorder(
+  getStream: () => MediaStream | null,
+  onLibrarySaved?: (meta: RecordingMeta) => void,
+) {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const mimeRef = useRef('video/webm')
   const startedAtRef = useRef(0)
+  const durationAtStopRef = useRef(0)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const stopResolverRef = useRef<((blob: Blob | null) => void) | null>(null)
+  const onSavedRef = useRef(onLibrarySaved)
+
+  useEffect(() => {
+    onSavedRef.current = onLibrarySaved
+  }, [onLibrarySaved])
 
   const [recording, setRecording] = useState(false)
   const [durationMs, setDurationMs] = useState(0)
@@ -45,6 +54,8 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
       return null
     }
 
+    durationAtStopRef.current = Date.now() - startedAtRef.current
+
     return new Promise((resolve) => {
       stopResolverRef.current = resolve
       try {
@@ -68,10 +79,15 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
     }
     const filename = makeRecordingFilename(blob.type || mimeRef.current)
     try {
-      const result = await saveRecordingBlob(blob, filename)
-      setLastSave(result)
+      const meta = await saveRecording({
+        blob,
+        name: filename,
+        durationMs: durationAtStopRef.current || undefined,
+      })
+      setLastSave('library')
       setRecordError(null)
-      return result
+      onSavedRef.current?.(meta)
+      return 'library' as const
     } catch (e) {
       setRecordError(
         e instanceof Error ? e.message : 'Kunne ikke lagre opptaket.',
@@ -99,13 +115,14 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
       return
     }
 
-    const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live')
+    const videoTracks = stream
+      .getVideoTracks()
+      .filter((t) => t.readyState === 'live')
     if (videoTracks.length === 0) {
       setRecordError('Ingen aktiv videostream å ta opp.')
       return
     }
 
-    // Opptak kun av live tracks — unngå å lagre stoppede tracks
     const recordStream = new MediaStream(videoTracks)
     const mime = pickRecorderMimeType()
     mimeRef.current = mime ?? 'video/webm'
@@ -159,7 +176,6 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
     }
 
     try {
-      // timeslice: jevnlige chunks så lange opptak ikke går tapt ved krasj
       recorder.start(1000)
     } catch (e) {
       setRecordError(
@@ -172,6 +188,7 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
 
     recorderRef.current = recorder
     startedAtRef.current = Date.now()
+    durationAtStopRef.current = 0
     setDurationMs(0)
     setRecording(true)
     clearTick()
@@ -214,7 +231,6 @@ export function useVideoRecorder(getStream: () => MediaStream | null) {
     lastSave,
     startRecording,
     stopAndSave,
-    /** Stopp uten lagring (f.eks. ved kamera-stopp der vi likevel lagrer eksplisitt) */
     stopRecording,
     toggleRecording,
     saveAndClear,

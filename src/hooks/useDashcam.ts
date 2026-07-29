@@ -69,9 +69,19 @@ export function useDashcam() {
         )
       : false,
   )
+  const [sourceMode, setSourceMode] = useState<'idle' | 'camera' | 'playback'>(
+    'idle',
+  )
+  const [playbackName, setPlaybackName] = useState<string | null>(null)
+  const [playbackPaused, setPlaybackPaused] = useState(false)
+  const [libraryVersion, setLibraryVersion] = useState(0)
+  const playbackUrlRef = useRef<string | null>(null)
   const signHudTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const getStream = useCallback(() => streamRef.current, [])
+  const onLibrarySaved = useCallback(() => {
+    setLibraryVersion((v) => v + 1)
+  }, [])
   const {
     recording,
     supported: recordingSupported,
@@ -81,7 +91,7 @@ export function useDashcam() {
     toggleRecording,
     stopRecording,
     saveAndClear,
-  } = useVideoRecorder(getStream)
+  } = useVideoRecorder(getStream, onLibrarySaved)
 
   const recordingRef = useRef(false)
   const stopRecordingRef = useRef(stopRecording)
@@ -478,11 +488,43 @@ export function useDashcam() {
     rafRef.current = requestAnimationFrame(loop)
   }, [drawFrame, runDetection])
 
+  const clearPlaybackUrl = useCallback(() => {
+    if (playbackUrlRef.current) {
+      URL.revokeObjectURL(playbackUrlRef.current)
+      playbackUrlRef.current = null
+    }
+  }, [])
+
+  const tearDownMedia = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    const video = videoRef.current
+    if (video) {
+      try {
+        video.pause()
+      } catch {
+        /* ignore */
+      }
+      video.removeAttribute('src')
+      video.srcObject = null
+      video.load()
+    }
+    clearPlaybackUrl()
+    boxesRef.current = []
+    lanesRef.current = { left: null, right: null }
+    zonesRef.current = null
+  }, [clearPlaybackUrl])
+
   const start = useCallback(
     async (preflight?: Promise<MediaStream> | null) => {
       setError(null)
+      setPlaybackName(null)
+      setPlaybackPaused(false)
+      setSourceMode('camera')
       setRunning(true)
       try {
+        tearDownMedia()
         let stream: MediaStream | null = null
         if (preflight) {
           try {
@@ -508,6 +550,7 @@ export function useDashcam() {
         streamRef.current = null
         if (videoRef.current) videoRef.current.srcObject = null
         setRunning(false)
+        setSourceMode('idle')
         let message =
           e instanceof Error
             ? e.message
@@ -519,8 +562,86 @@ export function useDashcam() {
         setError(message)
       }
     },
-    [loop, pwaStandalone],
+    [loop, pwaStandalone, tearDownMedia],
   )
+
+  const startPlayback = useCallback(
+    async (opts: { url: string; name: string; revokeUrl?: boolean }) => {
+      setError(null)
+      setEvents([])
+      setSignHud(null)
+      setPlaybackPaused(false)
+      setPlaybackName(opts.name)
+      setSourceMode('playback')
+      setRunning(true)
+      try {
+        if (recordingRef.current) {
+          const blob = await stopRecordingRef.current()
+          await saveAndClearRef.current(blob)
+        }
+        tearDownMedia()
+        if (opts.revokeUrl) playbackUrlRef.current = opts.url
+
+        const video = videoRef.current
+        if (!video) throw new Error('Videoelement mangler.')
+
+        video.setAttribute('playsinline', 'true')
+        video.setAttribute('webkit-playsinline', 'true')
+        video.muted = true
+        video.defaultMuted = true
+        video.playsInline = true
+        video.loop = true
+        video.controls = false
+        video.srcObject = null
+        video.src = opts.url
+
+        await new Promise<void>((resolve, reject) => {
+          let settled = false
+          const done = (ok: boolean, err?: Error) => {
+            if (settled) return
+            settled = true
+            video.removeEventListener('loadeddata', onReady)
+            video.removeEventListener('error', onError)
+            window.clearTimeout(timer)
+            if (ok) resolve()
+            else reject(err ?? new Error('Kunne ikke laste opptak.'))
+          }
+          const onReady = () => done(true)
+          const onError = () =>
+            done(false, new Error('Kunne ikke laste videoopptaket.'))
+          video.addEventListener('loadeddata', onReady)
+          video.addEventListener('error', onError)
+          const timer = window.setTimeout(() => done(true), 4000)
+          video.load()
+        })
+
+        await video.play()
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = requestAnimationFrame(loop)
+      } catch (e) {
+        tearDownMedia()
+        setRunning(false)
+        setSourceMode('idle')
+        setPlaybackName(null)
+        setError(
+          e instanceof Error ? e.message : 'Kunne ikke starte avspilling.',
+        )
+      }
+    },
+    [loop, tearDownMedia],
+  )
+
+  const togglePlaybackPause = useCallback(() => {
+    const video = videoRef.current
+    if (!video || sourceMode !== 'playback') return
+    if (video.paused) {
+      void video.play()
+      setPlaybackPaused(false)
+    } else {
+      video.pause()
+      setPlaybackPaused(true)
+    }
+  }, [sourceMode])
 
   const stop = useCallback(() => {
     const finish = async () => {
@@ -528,13 +649,11 @@ export function useDashcam() {
         const blob = await stopRecordingRef.current()
         await saveAndClearRef.current(blob)
       }
-      cancelAnimationFrame(rafRef.current)
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-      if (videoRef.current) videoRef.current.srcObject = null
-      boxesRef.current = []
-      lanesRef.current = { left: null, right: null }
+      tearDownMedia()
       setRunning(false)
+      setSourceMode('idle')
+      setPlaybackName(null)
+      setPlaybackPaused(false)
       setSignHud(null)
       if (signHudTimer.current) {
         clearTimeout(signHudTimer.current)
@@ -542,12 +661,13 @@ export function useDashcam() {
       }
     }
     void finish()
-  }, [])
+  }, [tearDownMedia])
 
   useEffect(() => {
     return () => {
       cancelAnimationFrame(rafRef.current)
       streamRef.current?.getTracks().forEach((t) => t.stop())
+      if (playbackUrlRef.current) URL.revokeObjectURL(playbackUrlRef.current)
       if (signHudTimer.current) clearTimeout(signHudTimer.current)
     }
   }, [])
@@ -565,6 +685,7 @@ export function useDashcam() {
     settings,
     setSettings,
     start,
+    startPlayback,
     stop,
     iosStandalone,
     pwaStandalone,
@@ -574,5 +695,10 @@ export function useDashcam() {
     recordError,
     lastSave,
     toggleRecording,
+    sourceMode,
+    playbackName,
+    playbackPaused,
+    togglePlaybackPause,
+    libraryVersion,
   }
 }
